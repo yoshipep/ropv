@@ -12,7 +12,7 @@ To build the program simply run the following command:
 	
 ## TODO
 
-- [ ] Choose the best option to disas and extract instructions from the binary.
+- [x] Choose the best option to disas and extract instructions from the binary.
 - [ ] Code the program.
 - [ ] Test the program.
 - [ ] Provide how the program is used.
