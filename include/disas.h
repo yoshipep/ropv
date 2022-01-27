@@ -20,6 +20,7 @@
 #define _DISAS_H 1
 
 #define DEFAULT_PERM 0644
+#define DUMMY_FILE "/tmp/disas.s"
 
 #include <elf.h>
 
@@ -35,6 +36,8 @@ uint8_t process_elf(const char *elfFile);
 uint8_t disassemble(const char *elfFile);
 
 uint8_t parseContent(const char *assemblyFile);
+
+extern uint8_t verbose;
 
 typedef struct
 {

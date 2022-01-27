@@ -1,4 +1,5 @@
 .vscode/*
 .vscode
-build/*
-build
+dist/*
+dist
+src/*.o

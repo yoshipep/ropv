@@ -32,7 +32,7 @@ inline uint8_t checkArch(Elf32_Half arch)
 
 inline uint8_t getBits(Elf32_Ehdr *header)
 {
-    return (*header).e_ident[EI_CLASS] == 2 ? 64 : 32;
+    return (*header).e_ident[EI_CLASS] == 2 ? 1 : 0;
 }
 
 uint8_t process_elf(const char *elfFile)
@@ -40,6 +40,10 @@ uint8_t process_elf(const char *elfFile)
     Elf32_Ehdr header;
     FILE *file;
     uint8_t res = 1;
+    if (verbose)
+    {
+        puts("[+] Opening the file");
+    }
 
     file = fopen(elfFile, "rb");
     if (file)
@@ -50,28 +54,36 @@ uint8_t process_elf(const char *elfFile)
         // check so its really an elf file
         if (memcmp(header.e_ident, ELFMAG, SELFMAG) == 0)
         {
+            if (verbose)
+            {
+                puts("[+] Checking architecture");
+            }
             if (checkArch(header.e_machine))
             {
-                if (getBits(&header) == 32)
+                if (verbose)
+                {
+                    puts("[+] Checking bitness");
+                }
+                if (!getBits(&header))
                 {
                     res = 0;
                 }
                 else
                 {
-                    fprintf(STDERR_FILENO, "Bitness not suported\n");
+                    fprintf(stderr, "[-] Bitness not suported\n");
                 }
             }
             else
             {
-                fprintf(STDERR_FILENO, "Bad architecture\n");
+                fprintf(stderr, "[-] Bad architecture\n");
             }
         }
         else
         {
-            fprintf(STDERR_FILENO, "Not an ELF file\n");
+            fprintf(stderr, "[-] Not an ELF file\n");
         }
     }
-    close(file);
+    fclose(file);
     return res;
 }
 
@@ -79,17 +91,22 @@ uint8_t disassemble(const char *elfFile)
 {
     pid_t child;
     int returnStatus;
-    char args[strlen(elfFile) + 3];
     int fd, tempfd;
 
-    stpcpy(stpcpy(args, "-d "), elfFile);
-    fd = open("/tmp/disas", O_RDWR | O_CREAT, DEFAULT_PERM);
+    char *args[] = {"/opt/rv32/bin/riscv32-unknown-linux-gnu-objdump", "-d", elfFile, NULL};
+
+    if (verbose)
+    {
+        puts("[+] Creating dummy file");
+    }
+
+    fd = open(DUMMY_FILE, O_WRONLY | O_CREAT, DEFAULT_PERM);
     if (fd)
     {
         tempfd = open("/dev/null", O_WRONLY);
         if (!tempfd)
         {
-            fprintf(STDERR_FILENO, "Unable to open /dev/null\n");
+            fprintf(stderr, "[-] Unable to open /dev/null\n");
         }
 
         if (process_elf(elfFile))
@@ -97,31 +114,36 @@ uint8_t disassemble(const char *elfFile)
             return 1;
         }
 
+        if (verbose)
+        {
+            puts("[+] Dissasembling the binary");
+        }
         child = fork();
 
-        if (child == 0)
+        if (!child)
         {
             dup2(fd, STDOUT_FILENO);
             dup2(tempfd, STDERR_FILENO);
-            execve("/opt/rv32/bin/riscv32-unknown-linux-gnu-objdump", args, NULL);
+            close(fd);
+            close(tempfd);
+            execve(args[0], args, NULL);
         }
 
         close(fd);
         close(tempfd);
         waitpid(child, &returnStatus, 0);
 
-        if (!returnStatus)
+        if (returnStatus)
         {
-            fprintf(STDERR_FILENO, "Program failed\n");
+            fprintf(stderr, "[-] Program failed\n");
             return 1;
         }
 
-        return parseContent("/tmp/disas.s");
+        return parseContent(DUMMY_FILE);
     }
     else
     {
-        fprintf(STDERR_FILENO, "Unable to create a dummy file\n");
-        close(fd);
+        fprintf(stderr, "[-] Unable to create a dummy file\n");
         return 1;
     }
 }
@@ -131,23 +153,37 @@ uint8_t parseContent(const char *assemblyFile)
 
     FILE *file;
     size_t len = 0;
-    ssize_t read;
+    ssize_t read = -1;
     char *line;
+
+    if (verbose)
+    {
+        puts("[+] Opening dummy file");
+    }
 
     file = fopen(assemblyFile, "r");
 
     if (!file)
     {
-        fprintf(STDERR_FILENO, "Unable to open the dummy file\n");
-        fclose(file);
+        fprintf(stderr, "[-] Unable to open the dummy file\n");
         return 1;
     }
-    unlink(assemblyFile);
+    //unlink(assemblyFile);
 
-    while (read = getline(&line, &len, file) != -1)
+    if (verbose)
     {
+        puts("[+] Parsing the content");
+    }
+    do
+    {
+        read = getline(&line, &len, file) != -1;
+        if (!read)
+        {
+            break;
+        }
         printf("Retrieved line of length %zu:\n", read);
         printf("%s", line);
-    }
+    } while (read);
+
     return 0;
 }

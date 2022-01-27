@@ -32,6 +32,8 @@ static struct argp_option options[] = {
     {0, 'v', "verbose", 0, "Set verbosity."},
     {0}};
 
+uint8_t verbose;
+
 struct arguments
 {
     uint8_t length;
@@ -54,7 +56,7 @@ static error_t parse_opt(int key, char *arg, struct argp_state *state)
         break;
 
     case 'v':
-        #define VERBOSE
+        verbose = 1;
         break;
 
     case ARGP_KEY_ARG:
@@ -91,5 +93,6 @@ int main(int argc, char **argv)
     argp_parse(&argp, argc, argv, 0, 0, &args);
 
     printf("%d\t%s\t%d\n", args.length, args.file, args.nThreads);
+    disassemble("/home/josep/Desktop/hello32");
     return 0;
 }
