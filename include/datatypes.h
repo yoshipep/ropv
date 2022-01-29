@@ -16,24 +16,26 @@
  *  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
-#ifndef _DISAS_H
-#define _DISAS_H 1
+#ifndef _DATATYPES_H
+#define _DATATYPES_H 1
 
-#define DEFAULT_PERM 0644
-#define DUMMY_FILE "/tmp/disas.s"
+#include <stdint.h>
 
-#include <elf.h>
+typedef uint32_t addr32_t;
+typedef uint64_t addr64_t;
 
-inline uint8_t checkArch(Elf32_Half arch);
+typedef struct ins32_t
+{
+    addr32_t address;
+    uint32_t opcode;
 
-inline uint8_t getBits(Elf32_Ehdr *header);
+} ins32_t;
 
-uint8_t process_elf(const char *elfFile);
+typedef struct ins64_t
+{
+    addr64_t address;
+    uint32_t opcode;
 
-uint8_t disassemble(const char *elfFile);
-
-uint8_t parseContent(const char *assemblyFile);
-
-extern uint8_t verbose;
+} ins64_t;
 
 #endif

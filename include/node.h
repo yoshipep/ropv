@@ -16,24 +16,27 @@
  *  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
-#ifndef _DISAS_H
-#define _DISAS_H 1
+#ifndef _NODE_H
+#define _NODE_H 1
 
-#define DEFAULT_PERM 0644
-#define DUMMY_FILE "/tmp/disas.s"
+#include <stdlib.h>
 
-#include <elf.h>
+#include "datatypes.h"
 
-inline uint8_t checkArch(Elf32_Half arch);
+typedef struct Node
+{
+    ins32_t data;
+    struct Node *next;
+    struct Node *prev;
+} Node;
 
-inline uint8_t getBits(Elf32_Ehdr *header);
-
-uint8_t process_elf(const char *elfFile);
-
-uint8_t disassemble(const char *elfFile);
-
-uint8_t parseContent(const char *assemblyFile);
-
-extern uint8_t verbose;
+inline Node *createNode(ins32_t data);
+inline void destroyNode(Node *n);
+inline Node *getNext(Node *n);
+inline Node *getPrev(Node *n);
+inline ins32_t getData(Node *n);
+inline void setNext(Node *n, Node *newNext);
+inline void setPrev(Node *n, Node *newPrev);
+inline void setData(Node *n, ins32_t newData);
 
 #endif

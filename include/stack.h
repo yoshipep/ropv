@@ -16,24 +16,30 @@
  *  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
-#ifndef _DISAS_H
-#define _DISAS_H 1
+#ifndef _STACK_H
+#define _STACK_H 1
 
-#define DEFAULT_PERM 0644
-#define DUMMY_FILE "/tmp/disas.s"
+#include <stdint.h>
+#include <stdlib.h>
 
-#include <elf.h>
+#include "datatypes.h"
+#include "node.h"
 
-inline uint8_t checkArch(Elf32_Half arch);
+typedef struct Stack
+{
+    size_t size;
+    struct Node *peek;
+    size_t maxSize;
 
-inline uint8_t getBits(Elf32_Ehdr *header);
+} Stack;
 
-uint8_t process_elf(const char *elfFile);
-
-uint8_t disassemble(const char *elfFile);
-
-uint8_t parseContent(const char *assemblyFile);
-
-extern uint8_t verbose;
+Stack *initStack(Stack *s, size_t size);
+inline void destroyStack(Stack *s);
+ins32_t *pop(Stack *s);
+int push(Stack *s, ins32_t *data);
+inline Node *peek(Stack *s);
+inline size_t size(Stack *s);
+inline size_t maxSize(Stack *s);
+inline uint8_t isEmpty(Stack *s);
 
 #endif
