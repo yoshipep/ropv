@@ -18,9 +18,9 @@
 
 #include "node.h"
 
-inline Node *createNode(ins32_t data)
+Node *createNode(int32_t data)
 {
-    Node *s = (Node *)malloc(sizeof(Node));
+    Node *s = (Node *)malloc(sizeof(struct Node));
 
     if (s == NULL)
     {
@@ -32,33 +32,53 @@ inline Node *createNode(ins32_t data)
     return s;
 }
 
-inline void destroyNode(Node *n)
+void destroyNode(struct Node *node)
 {
-    free(n);
-    n = NULL;
+    if (node == NULL)
+    {
+        return;
+    }
+    free(node);
 }
 
-inline Node *getNext(Node *n)
+Node *getNext(struct Node *n)
 {
+    if (n == NULL)
+    {
+        return NULL;
+    }
     return n->next;
 }
-inline Node *getPrev(Node *n)
+
+Node *getPrev(struct Node *n)
 {
+    if (n == NULL)
+    {
+        return NULL;
+    }
     return n->prev;
 }
-inline ins32_t getData(Node *n)
+
+int32_t getData(struct Node *n)
 {
+    if (n == NULL)
+    {
+        return -1;
+    }
     return n->data;
 }
-inline void setNext(Node *n, Node *newNext)
+
+void setNext(struct Node *n, struct Node *newNext)
 {
     n->next = newNext;
 }
-inline void setPrev(Node *n, Node *newPrev)
+
+void setPrev(struct Node *n, struct Node *newPrev)
 {
     n->prev = newPrev;
 }
-inline void setData(Node *n, ins32_t newData)
+
+void setData(struct Node *n, int32_t newData)
 {
     n->data = newData;
 }

@@ -25,18 +25,18 @@
 
 typedef struct Node
 {
-    ins32_t data;
+    int32_t data;
     struct Node *next;
     struct Node *prev;
 } Node;
 
-inline Node *createNode(ins32_t data);
-inline void destroyNode(Node *n);
-inline Node *getNext(Node *n);
-inline Node *getPrev(Node *n);
-inline ins32_t getData(Node *n);
-inline void setNext(Node *n, Node *newNext);
-inline void setPrev(Node *n, Node *newPrev);
-inline void setData(Node *n, ins32_t newData);
+Node *createNode(int32_t data);
+void destroyNode(struct Node *node);
+Node *getNext(struct Node *n);
+Node *getPrev(struct Node *n);
+int32_t getData(struct Node *n);
+void setNext(struct Node *n, struct Node *newNext);
+void setPrev(struct Node *n, struct Node *newPrev);
+void setData(struct Node *n, int32_t newData);
 
 #endif

@@ -16,30 +16,26 @@
  *  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
-#ifndef _STACK_H
-#define _STACK_H 1
+#include <stdio.h>
 
-#include <stdint.h>
-#include <stdlib.h>
-
-#include "datatypes.h"
 #include "node.h"
 
-typedef struct Stack
+int main()
 {
-    size_t size;
-    struct Node *peek;
-    size_t maxSize;
+    Node *s = createNode(32);
+    Node *p = createNode(8);
+    Node *t = createNode(24);
+    printf("Value in the node: %d\nPrev node: %p\nNext node: %p\n", getData(s), getPrev(s), getNext(s));
+    setData(s, 16);
+    setNext(s, p);
+    setPrev(s, t);
+    printf("Value in the node: %d\nPrev node: %p\tPrev data: %d\nNext node: %p\tNext data: %d\n", getData(s), getPrev(s), getData(t), getNext(s), getData(p));
+    setPrev(s, NULL);
+    printf("New prev node: %p\n", getPrev(s));
 
-} Stack;
-
-void initStack(Stack *s, size_t size);
-void destroyStack(Stack *s);
-int32_t pop(Stack *s);
-int push(Stack *s, int32_t data);
-struct Node *peek(Stack *s);
-size_t getSize(Stack *s);
-size_t getMaxSize(Stack *s);
-int8_t isEmpty(Stack *s);
-
-#endif
+    printf("Values from the node to be destroyed: V: %d\tP: %p\tN: %p\n", getData(s), getPrev(s), getNext(s));
+    destroyNode(s);
+    s = NULL;
+    printf("Values from the destroyed node: V: %d\tP: %p\tN: %p\n", getData(s), getPrev(s), getNext(s));
+    return 0;
+}

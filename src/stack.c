@@ -18,43 +18,57 @@
 
 #include "stack.h"
 
-Stack *initStack(Stack *s, size_t size)
+void initStack(Stack *s, size_t size)
 {
     s->peek = NULL;
     s->size = 0;
     s->maxSize = size;
-    return s;
 }
 
-inline void destroyStack(Stack *s)
+void destroyStack(Stack *s)
 {
-    s = NULL;
+    Node *prev = getPrev(s->peek);
+    while (prev != NULL)
+    {
+        Node *next = getNext(prev);
+        destroyNode(next);
+        next = NULL;
+        setNext(prev, NULL);
+        prev = getPrev(prev);
+    }
+    s->maxSize = 0;
+    s->size = 0;
+    s->peek = NULL;
 }
 
-ins32_t *pop(Stack *s)
+int32_t pop(Stack *s)
 {
     if (s->size == 0)
     {
-        return NULL;
+        return -1;
     }
     Node *res = s->peek;
     Node *prev = getPrev(s->peek);
 
     setPrev(s->peek, NULL);
-    setNext(prev, NULL);
+    if (prev != NULL)
+    {
+        setNext(prev, NULL);
+    }
+    s->peek = prev;
     s->size -= 1;
-    return &(res->data);
+    return res->data;
 }
 
-int push(Stack *s, ins32_t *data)
+int push(Stack *s, int32_t data)
 {
-    Node *n = createNode(*data);
+    Node *n = createNode(data);
 
     if (s->size == 0)
     {
         s->peek = n;
     }
-    else if (s->size + 1 == s->maxSize)
+    else if (s->size == s->maxSize)
     {
         return -1;
     }
@@ -69,22 +83,38 @@ int push(Stack *s, ins32_t *data)
     return s->size;
 }
 
-inline Node *peek(Stack *s)
+struct Node *peek(Stack *s)
 {
+    if (s == NULL)
+    {
+        return NULL;
+    }
     return s->peek;
 }
 
-inline size_t size(Stack *s)
+size_t getSize(Stack *s)
 {
+    if (s == NULL)
+    {
+        return 10;
+    }
     return s->size;
 }
 
-inline size_t maxSize(Stack *s)
+size_t getMaxSize(Stack *s)
 {
+    if (s == NULL)
+    {
+        return 10;
+    }
     return s->maxSize;
 }
 
-inline uint8_t isEmpty(Stack *s)
+int8_t isEmpty(Stack *s)
 {
+    if (s == NULL)
+    {
+        return -1;
+    }
     return s->size == 0;
 }
