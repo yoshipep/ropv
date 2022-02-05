@@ -7,10 +7,9 @@ OBJS=$(SOURCES:.c=.o)
 
 #$@ = Target de esa regla, en el primer caso es main
 #$^ = La expansión que hay a la derecha de los dos puntos a la derecha
-#$<: Expansion de uno de los objetos que hay a la derecha
+#$< = Expansion de uno de los objetos que hay a la derecha
 
 ropv: $(OBJS)
-	echo $(OBJS)
 	$(CC) $^ $(INCLUDE) $(CFLAGS) -o $@
 
 debug: $(OBJS)

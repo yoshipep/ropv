@@ -49,38 +49,44 @@ uint8_t process_elf(const char *elfFile)
     if (file)
     {
         // read the header
-        fread(&header, sizeof(header), 1, file);
-
-        // check so its really an elf file
-        if (memcmp(header.e_ident, ELFMAG, SELFMAG) == 0)
+        if (fread(&header, sizeof(header), 1, file))
         {
-            if (verbose)
-            {
-                puts("[+] Checking architecture");
-            }
-            if (checkArch(header.e_machine))
+
+            // check so its really an elf file
+            if (memcmp(header.e_ident, ELFMAG, SELFMAG) == 0)
             {
                 if (verbose)
                 {
-                    puts("[+] Checking bitness");
+                    puts("[+] Checking architecture");
                 }
-                if (!getBits(&header))
+                if (checkArch(header.e_machine))
                 {
-                    res = 0;
+                    if (verbose)
+                    {
+                        puts("[+] Checking bitness");
+                    }
+                    if (!getBits(&header))
+                    {
+                        res = 0;
+                    }
+                    else
+                    {
+                        fprintf(stderr, "[-] Bitness not suported\n");
+                    }
                 }
                 else
                 {
-                    fprintf(stderr, "[-] Bitness not suported\n");
+                    fprintf(stderr, "[-] Bad architecture\n");
                 }
             }
             else
             {
-                fprintf(stderr, "[-] Bad architecture\n");
+                fprintf(stderr, "[-] Not an ELF file\n");
             }
         }
         else
         {
-            fprintf(stderr, "[-] Not an ELF file\n");
+            fprintf(stderr, "[-] Error while reading the ELF file\n");
         }
     }
     fclose(file);
@@ -181,8 +187,12 @@ uint8_t parseContent(const char *assemblyFile)
         {
             break;
         }
-        printf("Retrieved line of length %zu:\n", read);
+        // Check if the line is the start of a function
+        //if (line[strlen(line) - 2] == ':' && (line[0] - '0' >= 0 && line[0] - '0' <= 9))
+        // char *base_address = malloc(sizeof(char) * 8);
+        // base_address = strncpy(base_address, line, 8);
         printf("%s", line);
+
     } while (read);
 
     return 0;

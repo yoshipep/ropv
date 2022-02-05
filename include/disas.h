@@ -24,6 +24,8 @@
 
 #include <elf.h>
 
+#include "datatypes.h"
+
 inline uint8_t checkArch(Elf32_Half arch);
 
 inline uint8_t getBits(Elf32_Ehdr *header);
@@ -35,5 +37,7 @@ uint8_t disassemble(const char *elfFile);
 uint8_t parseContent(const char *assemblyFile);
 
 extern uint8_t verbose;
+
+extern struct arguments arguments;
 
 #endif

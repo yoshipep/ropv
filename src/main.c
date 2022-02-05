@@ -20,6 +20,7 @@
 #include <stdint.h>
 #include <stdlib.h>
 
+#include "datatypes.h"
 #include "disas.h"
 
 const char *argp_program_version = "ropv v1.0";
@@ -28,31 +29,71 @@ static char doc[] = "Tool for ROP explotation (ELF binaries & RISC-V architectur
 static char args_doc[] = "file";
 static struct argp_option options[] = {
     {0, 'l', "length", 0, "Set max number of instructions per gadget."},
-    {0, 't', "threads", 0, "Set thread number."},
+    {0, 'a', "all", 0, "Show all gadgets"},
+    {0, 'i', "interesting", 0, "Show most interesting gadgets"},
+    {0, 's', "specific", 0, "Show specific gadgets. (i.e. related to sp register)"},
     {0, 'v', "verbose", 0, "Set verbosity."},
     {0}};
 
 uint8_t verbose;
 
-struct arguments
-{
-    uint8_t length;
-    char *file;
-    uint8_t nThreads;
-};
+static char mutuallyExclusive = 'z';
+
+static uint8_t arg_count = 4;
 
 static error_t parse_opt(int key, char *arg, struct argp_state *state)
 {
     struct arguments *arguments = state->input;
+    arguments->mode = FULL_MODE;
+    int tmp;
 
     switch (key)
     {
     case 'l':
-        arguments->length = atoi(arg);
+        tmp = atoi(arg);
+        if (tmp <= 0 || tmp >= 5)
+        {
+            arguments->length = DEFAULT_LENGTH;
+        }
+        else
+        {
+            arguments->length = tmp;
+        }
         break;
 
-    case 't':
-        arguments->nThreads = atoi(arg);
+    case 'a':
+        if (mutuallyExclusive == 'z')
+        {
+            arguments->mode = FULL_MODE;
+            mutuallyExclusive = 'a';
+        }
+        else
+        {
+            argp_failure(state, 1, 1, "Invalid argument combination. Options -a, -s and -i are mutually exclusive.");
+        }
+        break;
+    case 'i':
+        if (mutuallyExclusive == 'z')
+        {
+            arguments->mode = INTEREST_MODE;
+            mutuallyExclusive = 'i';
+        }
+        else
+        {
+            argp_failure(state, 1, 1, "Invalid argument combination. Options -a, -s and -i are mutually exclusive.");
+        }
+        break;
+
+    case 's':
+        if (mutuallyExclusive == 'z')
+        {
+            arguments->mode = SPECIFIC_MODE;
+            mutuallyExclusive = 's';
+        }
+        else
+        {
+            argp_failure(state, 1, 1, "Invalid argument combination. Options -a, -s and -i are mutually exclusive.");
+        }
         break;
 
     case 'v':
@@ -60,7 +101,7 @@ static error_t parse_opt(int key, char *arg, struct argp_state *state)
         break;
 
     case ARGP_KEY_ARG:
-        if (state->arg_num > 1)
+        if (state->arg_num >= 1)
         {
             argp_usage(state);
         }
@@ -89,10 +130,14 @@ int main(int argc, char **argv)
 {
     struct arguments args;
 
-    args.length = 3; //default length: 3 ins / gadget
     argp_parse(&argp, argc, argv, 0, 0, &args);
 
-    printf("%d\t%s\t%d\n", args.length, args.file, args.nThreads);
+    if (args.length != DEFAULT_LENGTH)
+    {
+        args.length = args.length;
+    }
+
+    printf("%d\t%s\t%d\n", args.length, args.file, args.mode);
     disassemble("/home/josep/Desktop/hello32");
     return 0;
 }
