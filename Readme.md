@@ -12,8 +12,10 @@ To build the program simply run the following command:
     Usage: ropv [OPTION...] file
     Tool for ROP explotation (ELF binaries & RISC-V architecture)
 
+        -a all                     Show all gadgets
+        -i interesting             Show most interesting gadgets
         -l length                  Set max number of instructions per gadget.
-        -t threads                 Set thread number.
+        -s specific                Show specific gadgets. (i.e. related to sp register)
         -v verbose                 Set verbosity.
         -?, --help                 Give this help list
         --usage                Give a short usage message
