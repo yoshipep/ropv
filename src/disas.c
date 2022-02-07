@@ -23,6 +23,7 @@
 #include <sys/wait.h>
 #include <unistd.h>
 
+#include "datatypes.h"
 #include "disas.h"
 
 inline uint8_t checkArch(Elf32_Half arch)
@@ -161,7 +162,11 @@ uint8_t parseContent(const char *assemblyFile)
     size_t len = 0;
     ssize_t read = -1;
     char *line;
-
+    char *address;
+    uint8_t start = 0;
+    uint8_t nIns;
+    int32_t baseAddress;
+    
     if (verbose)
     {
         puts("[+] Opening dummy file");
@@ -187,11 +192,40 @@ uint8_t parseContent(const char *assemblyFile)
         {
             break;
         }
+
         // Check if the line is the start of a function
-        //if (line[strlen(line) - 2] == ':' && (line[0] - '0' >= 0 && line[0] - '0' <= 9))
+        if (!start && line[strlen(line) - 2] == ':' && (line[0] - '0' >= 0 && line[0] - '0' <= 9) && !strstr(line, "_PROCEDURE_LINKAGE_TABLE_")) {
+            start = 1;
+            address = malloc(sizeof(char) * 8);
+            address = strncpy(address, line, 8);
+            baseAddress = strtol(address, NULL, 0x10);
+            free(address);
+            address = NULL;
+            printf("%s", line);
+            nIns = 0;
+            // printf("Base address: 0x%08x\n", baseAddress);
+            continue;
+        }
+
+        if (start) {
+            if (line[0] == 0xa || strstr(line, "...") || strstr(line, "unimp")) {
+                start = 0;
+                continue;
+            }
+            ins32_t current;
+            current.address = baseAddress + nIns;
+
+            /*if (strstr(line, "ret")) {
+
+            }*/
+            nIns += 4;
+            printf("0x%08x\n", current.address);
+
+        }
+        // printf("%s", line);
         // char *base_address = malloc(sizeof(char) * 8);
         // base_address = strncpy(base_address, line, 8);
-        printf("%s", line);
+        
 
     } while (read);
 

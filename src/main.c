@@ -138,6 +138,6 @@ int main(int argc, char **argv)
     }
 
     printf("%d\t%s\t%d\n", args.length, args.file, args.mode);
-    disassemble("/home/josep/Desktop/hello32");
+    disassemble("/home/josep/Desktop/ropv/files/example");
     return 0;
 }

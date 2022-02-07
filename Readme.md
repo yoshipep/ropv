@@ -18,7 +18,7 @@ To build the program simply run the following command:
         -s specific                Show specific gadgets. (i.e. related to sp register)
         -v verbose                 Set verbosity.
         -?, --help                 Give this help list
-        --usage                Give a short usage message
+        --usage                    Give a short usage message
         -V, --version              Print program version
 
     Report bugs to comes.josep2@gmail.com.

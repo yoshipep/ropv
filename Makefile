@@ -1,5 +1,5 @@
 CC=gcc
-CFLAGS=-O2 -fPIE
+CFLAGS=-O2 -fPIE -Wl,-pie -D_FORTIFY_SOURCE=2 -fstack-protector # Comprobar la necesidad de los dos ultimos flags
 INCLUDE=-I ./include
 DBG=-Wall -O0 -ggdb
 SOURCES=./src/main.c ./src/disas.c
