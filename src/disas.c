@@ -163,10 +163,14 @@ uint8_t parseContent(const char *assemblyFile)
     ssize_t read = -1;
     char *line;
     char *address;
+    char *pos;
     uint8_t start = 0;
     uint8_t nIns;
     int32_t baseAddress;
-    
+    size_t endPos;
+    size_t startPos;
+    uint8_t nTabs;
+
     if (verbose)
     {
         puts("[+] Opening dummy file");
@@ -179,7 +183,7 @@ uint8_t parseContent(const char *assemblyFile)
         fprintf(stderr, "[-] Unable to open the dummy file\n");
         return 1;
     }
-    //unlink(assemblyFile);
+    // unlink(assemblyFile);
 
     if (verbose)
     {
@@ -194,38 +198,60 @@ uint8_t parseContent(const char *assemblyFile)
         }
 
         // Check if the line is the start of a function
-        if (!start && line[strlen(line) - 2] == ':' && (line[0] - '0' >= 0 && line[0] - '0' <= 9) && !strstr(line, "_PROCEDURE_LINKAGE_TABLE_")) {
+        if (!start && line[strlen(line) - 2] == ':' && (line[0] - '0' >= 0 && line[0] - '0' <= 9) && !strstr(line, "_PROCEDURE_LINKAGE_TABLE_"))
+        {
             start = 1;
             address = malloc(sizeof(char) * 8);
             address = strncpy(address, line, 8);
             baseAddress = strtol(address, NULL, 0x10);
             free(address);
             address = NULL;
-            printf("%s", line);
+            // printf("%s", line);
             nIns = 0;
             // printf("Base address: 0x%08x\n", baseAddress);
             continue;
         }
 
-        if (start) {
-            if (line[0] == 0xa || strstr(line, "...") || strstr(line, "unimp")) {
+        // printf("%s", line);
+        if (start)
+        {
+            startPos = 0;
+            nTabs = 0;
+            if (line[0] == 0xa || strstr(line, "...") || strstr(line, "unimp"))
+            {
                 start = 0;
                 continue;
             }
+
+            pos = strstr(line, "#");
+
+            if (!pos)
+            {
+                pos = strstr(line, "\n");
+                endPos = pos - line;
+            }
+            else
+            {
+                endPos = pos - line - 1;
+            }
+
+            while (line[startPos] && nTabs < 2)
+            {
+                startPos++;
+                if (line[startPos] == '\t')
+                {
+                    nTabs++;
+                }
+            }
+            startPos += 1;
             ins32_t current;
             current.address = baseAddress + nIns;
+            current.disassembled = (char *)malloc(sizeof(char) * (endPos - startPos));
+            strncpy(current.disassembled, &line[startPos], endPos - startPos);
 
-            /*if (strstr(line, "ret")) {
-
-            }*/
             nIns += 4;
-            printf("0x%08x\n", current.address);
-
+            printf("0x%08x: \t%s\n", current.address, current.disassembled);
         }
-        // printf("%s", line);
-        // char *base_address = malloc(sizeof(char) * 8);
-        // base_address = strncpy(base_address, line, 8);
-        
 
     } while (read);
 

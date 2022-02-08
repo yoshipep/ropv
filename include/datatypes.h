@@ -83,7 +83,7 @@ typedef struct ins32_t
     uint8_t regToShift; // Register where the result is written
     shift_t type; // Type of shift
     op_t operation;
-    char disassembled[100];
+    char *disassembled;
 } ins32_t;
 
 #endif
