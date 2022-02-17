@@ -37,6 +37,8 @@ static struct argp_option options[] = {
 
 uint8_t verbose;
 
+struct arguments args;
+
 static char mutuallyExclusive = 'z';
 
 static uint8_t arg_count = 4;
@@ -128,8 +130,6 @@ static struct argp argp = {options, parse_opt, args_doc, doc, 0, 0, 0};
 
 int main(int argc, char **argv)
 {
-    struct arguments args;
-
     argp_parse(&argp, argc, argv, 0, 0, &args);
 
     if (args.length != DEFAULT_LENGTH)

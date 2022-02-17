@@ -23,6 +23,9 @@
 
 #define DEFAULT_LENGTH 3
 
+#define true 1
+#define false 0
+
 typedef uint32_t addr32_t;
 typedef uint64_t addr64_t;
 
