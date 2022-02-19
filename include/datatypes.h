@@ -83,7 +83,7 @@ typedef struct ins32_t
     uint8_t mode;      // Read = 0xC -> HI, Write = 3 -> LO
     uint8_t useImmediate;
     uint8_t useShift;
-    uint8_t regToShift; // Register where the result is written
+    char regToShift[2]; // Register where the result is written
     shift_t type; // Type of shift
     op_t operation;
     char *disassembled;

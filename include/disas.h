@@ -26,6 +26,8 @@
 
 #include "datatypes.h"
 
+uint8_t disassemble(char *elfFile);
+
 extern uint8_t verbose;
 
 extern struct arguments arguments;

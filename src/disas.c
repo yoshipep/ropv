@@ -30,11 +30,9 @@ static inline uint8_t checkArch(Elf32_Half arch);
 
 static inline uint8_t getBits(Elf32_Ehdr *header);
 
-static uint8_t process_elf(const char *elfFile);
+static uint8_t process_elf(char *elfFile);
 
-static uint8_t disassemble(const char *elfFile);
-
-static uint8_t parseContent(const char *assemblyFile);
+static uint8_t parseContent(char *assemblyFile);
 
 static void fillData(struct ins32_t *instruction);
 
@@ -53,7 +51,7 @@ static inline uint8_t getBits(Elf32_Ehdr *header)
     return (*header).e_ident[EI_CLASS] != 2 ? 1 : 0;
 }
 
-static uint8_t process_elf(const char *elfFile)
+static uint8_t process_elf(char *elfFile)
 {
     Elf32_Ehdr header;
     FILE *file;
@@ -111,13 +109,13 @@ static uint8_t process_elf(const char *elfFile)
     return res;
 }
 
-static uint8_t disassemble(const char *elfFile)
+uint8_t disassemble(char *elfFile)
 {
     pid_t child;
     int returnStatus;
     int fd, tempfd;
 
-    char *args[] = {"/opt/rv32/bin/riscv32-unknown-linux-gnu-objdump", "-d", (void *)elfFile, NULL};
+    char *args[] = {"/opt/rv32/bin/riscv32-unknown-linux-gnu-objdump", "-d", elfFile, NULL};
 
     if (verbose)
     {
@@ -174,7 +172,7 @@ fail:
     return 1;
 }
 
-static uint8_t parseContent(const char *assemblyFile)
+static uint8_t parseContent(char *assemblyFile)
 {
 
     FILE *file;
@@ -273,6 +271,10 @@ static uint8_t parseContent(const char *assemblyFile)
             if (current.useImmediate)
             {
                 printf("%hd\n", current.immediate);
+            }
+            if (current.useShift)
+            {
+                printf("%s\n", current.regToShift);
             }
         }
 
@@ -465,6 +467,10 @@ liberate:
 
 static void setShift(struct ins32_t *instruction)
 {
+    char *pos = strstr(instruction->disassembled, ",");
+
+    strncpy(instruction->regToShift, ++pos, 2);
+
     /*srli - slli - sll - srl - sra - srai*/
     if (strstr(instruction->disassembled, "srli"))
     {
