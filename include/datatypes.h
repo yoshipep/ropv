@@ -23,11 +23,7 @@
 
 #define DEFAULT_LENGTH 3
 
-#define true 1
-#define false 0
-
 typedef uint32_t addr32_t;
-typedef uint64_t addr64_t;
 
 /*Todos los gadgets, los más interesantes, todos los relacionados con x registro*/
 typedef enum
@@ -53,7 +49,9 @@ typedef enum
     NOP,
     MOV,
     CALL,
-    BRK
+    BRK,
+    NOT,
+    NEG
 } op_t;
 
 typedef enum
@@ -74,19 +72,17 @@ struct arguments
     uint8_t arg_num;
 };
 
-/*Necesitamos saber: direccion, efecto (salto, suma, resta...), si tiene inmediato, si es de tipo shift, si es de R/W
-ins desensamblada*/
 typedef struct ins32_t
 {
-    addr32_t address;  /*int y = 0x103c0;printf("0x%08x\n", y);*/
-    int16_t immediate; // Used by I-Type instructions
-    uint8_t mode;      // Read = 0xC -> HI, Write = 3 -> LO
+    addr32_t address;
+    int16_t immediate;
+    uint8_t mode;
     uint8_t useImmediate;
-    uint8_t useShift;
-    char regToShift[2]; // Register where the result is written
-    shift_t type; // Type of shift
+    shift_t type;
     op_t operation;
     char *disassembled;
+    uint8_t useShift;
+    char regToShift[2];
 } ins32_t;
 
 #endif

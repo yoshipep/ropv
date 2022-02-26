@@ -17,7 +17,6 @@
  */
 
 #include <argp.h>
-#include <stdint.h>
 #include <stdlib.h>
 
 #include "datatypes.h"
@@ -138,6 +137,6 @@ int main(int argc, char **argv)
     }
 
     printf("%d\t%s\t%d\n", args.length, args.file, args.mode);
-    disassemble("/home/josep/Desktop/ropv/files/example");
+    disassemble("/home/josep/Desktop/ropv/files/a.out");
     return 0;
 }

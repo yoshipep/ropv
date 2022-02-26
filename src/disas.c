@@ -47,7 +47,7 @@ static inline uint8_t checkArch(Elf32_Half arch)
 
 static inline uint8_t getBits(Elf32_Ehdr *header)
 {
-    /*Si el valor es 2, indica que es un ejecutable de 64 bits*/
+    /*If value equals to 2, the binary is from a 64 bits arch*/
     return (*header).e_ident[EI_CLASS] != 2 ? 1 : 0;
 }
 
@@ -56,6 +56,7 @@ static uint8_t process_elf(char *elfFile)
     Elf32_Ehdr header;
     FILE *file;
     uint8_t res = 1;
+
     if (verbose)
     {
         puts("[+] Opening the file");
@@ -81,25 +82,42 @@ static uint8_t process_elf(char *elfFile)
                     {
                         puts("[+] Checking bitness");
                     }
+
                     if (getBits(&header))
                     {
-                        res = 0;
+                        if (verbose)
+                        {
+                            puts("[+] Checking program headers");
+                        }
+
+                        if (header.e_phnum)
+                        {
+                            res = 0;
+                        }
+                        else
+                        {
+                            fprintf(stderr, "[-] Invalid ELF file\n");
+                        }
                     }
+
                     else
                     {
                         fprintf(stderr, "[-] Bitness not suported\n");
                     }
                 }
+
                 else
                 {
                     fprintf(stderr, "[-] Bad architecture\n");
                 }
             }
+
             else
             {
                 fprintf(stderr, "[-] Not an ELF file\n");
             }
         }
+
         else
         {
             fprintf(stderr, "[-] Error while reading the ELF file\n");
@@ -129,6 +147,7 @@ uint8_t disassemble(char *elfFile)
         if (!tempfd)
         {
             fprintf(stderr, "[-] Unable to open /dev/null\n");
+            goto fail;
         }
 
         if (process_elf(elfFile))
@@ -163,12 +182,23 @@ uint8_t disassemble(char *elfFile)
 
         return parseContent(DUMMY_FILE);
     }
+
     else
     {
         fprintf(stderr, "[-] Unable to create a dummy file\n");
         goto fail;
     }
+
 fail:
+    if (fcntl(fd, F_GETFD))
+    {
+        close(fd);
+    }
+
+    if (fcntl(tempfd, F_GETFD))
+    {
+        close(tempfd);
+    }
     return 1;
 }
 
@@ -176,17 +206,17 @@ static uint8_t parseContent(char *assemblyFile)
 {
 
     FILE *file;
-    size_t len = 0;
-    ssize_t read = -1;
     char *line;
     char *address;
     char *pos;
-    uint8_t start = 0;
     uint8_t nIns;
     int32_t baseAddress;
     size_t endPos;
     size_t startPos;
     uint8_t nTabs;
+    uint8_t start = 0;
+    size_t len = 0;
+    ssize_t read = -1;
 
     if (verbose)
     {
@@ -244,6 +274,7 @@ static uint8_t parseContent(char *assemblyFile)
                 pos = strstr(line, "\n");
                 endPos = pos - line;
             }
+
             else
             {
                 endPos = pos - line - 1;
@@ -272,6 +303,7 @@ static uint8_t parseContent(char *assemblyFile)
             {
                 printf("%hd\n", current.immediate);
             }
+
             if (current.useShift)
             {
                 printf("%s\n", current.regToShift);
@@ -285,8 +317,8 @@ static uint8_t parseContent(char *assemblyFile)
 
 static void fillData(struct ins32_t *instruction)
 {
-    /*TODO: Registro a shiftear*/
     char start = instruction->disassembled[0];
+    size_t len = strlen(instruction->disassembled);
 
     switch (start)
     {
@@ -296,16 +328,19 @@ static void fillData(struct ins32_t *instruction)
         instruction->useImmediate = 0;
         instruction->useShift = 0;
         break;
+
     case 'b':
         instruction->operation = CMP;
         instruction->useImmediate = 0;
         instruction->useShift = 0;
         break;
+
     case 'j':
         instruction->operation = JMP;
         instruction->useImmediate = 0;
         instruction->useShift = 0;
         break;
+
     case 'x':
         instruction->operation = XOR;
         instruction->mode = 0b0011;
@@ -314,11 +349,13 @@ static void fillData(struct ins32_t *instruction)
         {
             instruction->useImmediate = 1;
         }
+
         else
         {
             instruction->useImmediate = 0;
         }
         break;
+
     case 'o':
         instruction->operation = OR;
         instruction->mode = 0b0011;
@@ -327,57 +364,88 @@ static void fillData(struct ins32_t *instruction)
         {
             instruction->useImmediate = 1;
         }
+
         else
         {
             instruction->useImmediate = 0;
         }
         break;
+
     case 'e':
         if (strstr(instruction->disassembled, "ecall"))
         {
             instruction->operation = CALL;
         }
+
         else
         {
             instruction->operation = BRK;
         }
+
         instruction->useShift = 0;
         instruction->useImmediate = 0;
         instruction->mode = 0;
         break;
+
     case 'n':
-        instruction->operation = NOP;
-        instruction->useShift = 0;
-        instruction->useImmediate = 0;
-        instruction->mode = 0;
-        break;
+        if (strstr(instruction->disassembled, "t"))
+        {
+            instruction->operation = NOT;
+            instruction->useShift = 0;
+            instruction->useImmediate = 0;
+            instruction->mode = 0b0011;
+            break;
+        }
+        else if (strstr(instruction->disassembled, "g"))
+        {
+            instruction->operation = NEG;
+            instruction->useShift = 0;
+            instruction->useImmediate = 0;
+            instruction->mode = 0b0011;
+            break;
+        }
+        else
+        {
+            instruction->operation = NOP;
+            instruction->useShift = 0;
+            instruction->useImmediate = 0;
+            instruction->mode = 0;
+            break;
+        }
+
     case 'm':
         instruction->operation = MOV;
         instruction->mode = 0b0011;
         instruction->useShift = 0;
         instruction->useImmediate = 0;
         break;
+
     case 'a':
         if (strstr(instruction->disassembled, "ad") || strstr(instruction->disassembled, "au"))
         {
             instruction->operation = ADD;
             instruction->mode = 0b0011;
         }
+
         else
         {
             instruction->operation = AND;
             instruction->mode = 0b0011;
         }
+
         if (strstr(instruction->disassembled, "i"))
         {
             instruction->useImmediate = 1;
         }
+
         else
         {
             instruction->useImmediate = 0;
         }
+
         instruction->useShift = 0;
         break;
+
     case 's':
         if (strstr(instruction->disassembled, "sub"))
         {
@@ -386,7 +454,8 @@ static void fillData(struct ins32_t *instruction)
             instruction->useShift = 0;
             instruction->useImmediate = 0;
         }
-        else if (strstr(instruction->disassembled, "slt") || strstr(instruction->disassembled, "sn") || strstr(instruction->disassembled, "sg"))
+
+        else if (strstr(instruction->disassembled, "se") || strstr(instruction->disassembled, "slt") || strstr(instruction->disassembled, "sn") || strstr(instruction->disassembled, "sg"))
         {
             instruction->operation = SET;
             instruction->mode = 0b0011;
@@ -395,11 +464,13 @@ static void fillData(struct ins32_t *instruction)
             {
                 instruction->useImmediate = 1;
             }
+
             else
             {
                 instruction->useImmediate = 0;
             }
         }
+
         else if (strstr(instruction->disassembled, "sr") || strstr(instruction->disassembled, "sll"))
         {
             instruction->operation = SHIFT;
@@ -409,12 +480,15 @@ static void fillData(struct ins32_t *instruction)
             {
                 instruction->useImmediate = 1;
             }
+
             else
             {
                 instruction->useImmediate = 0;
             }
+
             setShift(instruction);
         }
+
         else
         {
             instruction->operation = STORE;
@@ -423,9 +497,11 @@ static void fillData(struct ins32_t *instruction)
             instruction->useImmediate = 0;
         }
         break;
+
     default:
         break;
     }
+
     if (instruction->useImmediate)
     {
         setInmediate(instruction);
@@ -434,10 +510,10 @@ static void fillData(struct ins32_t *instruction)
 
 static void setInmediate(struct ins32_t *instruction)
 {
-    char *isPresent = strstr(instruction->disassembled, "0x");
     char *dummy;
     size_t size;
     size_t startPos = strlen(instruction->disassembled) - 1;
+    char *isPresent = strstr(instruction->disassembled, "0x");
 
     if (isPresent)
     {
@@ -448,18 +524,21 @@ static void setInmediate(struct ins32_t *instruction)
         instruction->immediate = atoi(dummy);
         goto liberate;
     }
+
     else
     {
         while (instruction->disassembled[startPos - 1] != ',')
         {
             startPos--;
         }
+
         dummy = (char *)malloc(sizeof(char) * (strlen(instruction->disassembled) - startPos));
         strncpy(dummy, &instruction->disassembled[startPos], startPos);
         instruction->immediate = atoi(dummy);
         goto liberate;
     }
     return;
+
 liberate:
     free(dummy);
     dummy = NULL;
@@ -471,27 +550,31 @@ static void setShift(struct ins32_t *instruction)
 
     strncpy(instruction->regToShift, ++pos, 2);
 
-    /*srli - slli - sll - srl - sra - srai*/
     if (strstr(instruction->disassembled, "srli"))
     {
         instruction->type = SRLI;
     }
+
     else if ((strstr(instruction->disassembled, "slli")))
     {
         instruction->type = SLLI;
     }
+
     else if ((strstr(instruction->disassembled, "sll")))
     {
         instruction->type = SLL;
     }
+
     else if ((strstr(instruction->disassembled, "srl")))
     {
         instruction->type = SRL;
     }
+
     else if ((strstr(instruction->disassembled, "sra")))
     {
         instruction->type = SRA;
     }
+
     else
     {
         instruction->type = SRAI;
