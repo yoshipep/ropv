@@ -82,7 +82,7 @@ typedef struct ins32_t
     op_t operation;
     char *disassembled;
     uint8_t useShift;
-    char regToShift[2];
+    char regToShift[3];
 } ins32_t;
 
 #endif

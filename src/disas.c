@@ -299,10 +299,6 @@ static uint8_t parseContent(char *assemblyFile)
 
             nIns += 4;
             printf("0x%08x: \t%s\t%d\n", current.address, current.disassembled, current.mode);
-            if (current.useImmediate)
-            {
-                printf("%hd\n", current.immediate);
-            }
 
             if (current.useShift)
             {
@@ -318,7 +314,6 @@ static uint8_t parseContent(char *assemblyFile)
 static void fillData(struct ins32_t *instruction)
 {
     char start = instruction->disassembled[0];
-    size_t len = strlen(instruction->disassembled);
 
     switch (start)
     {
@@ -348,12 +343,10 @@ static void fillData(struct ins32_t *instruction)
         if (strstr(instruction->disassembled, "i"))
         {
             instruction->useImmediate = 1;
+            goto setImm;
         }
 
-        else
-        {
-            instruction->useImmediate = 0;
-        }
+        instruction->useImmediate = 0;
         break;
 
     case 'o':
@@ -363,12 +356,10 @@ static void fillData(struct ins32_t *instruction)
         if (strstr(instruction->disassembled, "i"))
         {
             instruction->useImmediate = 1;
+            goto setImm;
         }
 
-        else
-        {
-            instruction->useImmediate = 0;
-        }
+        instruction->useImmediate = 0;
         break;
 
     case 'e':
@@ -433,17 +424,15 @@ static void fillData(struct ins32_t *instruction)
             instruction->mode = 0b0011;
         }
 
+        instruction->useShift = 0;
         if (strstr(instruction->disassembled, "i"))
         {
             instruction->useImmediate = 1;
+            goto setImm;
         }
 
-        else
-        {
-            instruction->useImmediate = 0;
-        }
+        instruction->useImmediate = 0;
 
-        instruction->useShift = 0;
         break;
 
     case 's':
@@ -463,12 +452,10 @@ static void fillData(struct ins32_t *instruction)
             if (strstr(instruction->disassembled, "i"))
             {
                 instruction->useImmediate = 1;
+                goto setImm;
             }
 
-            else
-            {
-                instruction->useImmediate = 0;
-            }
+            instruction->useImmediate = 0;
         }
 
         else if (strstr(instruction->disassembled, "sr") || strstr(instruction->disassembled, "sll"))
@@ -476,17 +463,14 @@ static void fillData(struct ins32_t *instruction)
             instruction->operation = SHIFT;
             instruction->mode = 0b0011;
             instruction->useShift = 1;
+            setShift(instruction);
             if (strstr(instruction->disassembled, "i"))
             {
                 instruction->useImmediate = 1;
+                goto setImm;
             }
 
-            else
-            {
-                instruction->useImmediate = 0;
-            }
-
-            setShift(instruction);
+            instruction->useImmediate = 0;
         }
 
         else
@@ -499,13 +483,12 @@ static void fillData(struct ins32_t *instruction)
         break;
 
     default:
-        break;
+        return;
     }
 
-    if (instruction->useImmediate)
-    {
-        setInmediate(instruction);
-    }
+    return;
+setImm:
+    setInmediate(instruction);
 }
 
 static void setInmediate(struct ins32_t *instruction)
@@ -547,6 +530,7 @@ liberate:
 static void setShift(struct ins32_t *instruction)
 {
     char *pos = strstr(instruction->disassembled, ",");
+    instruction->regToShift[2] = 0;
 
     strncpy(instruction->regToShift, ++pos, 2);
 
@@ -579,4 +563,6 @@ static void setShift(struct ins32_t *instruction)
     {
         instruction->type = SRAI;
     }
+
+    // instruction->regToShift[2] = '\0';
 }
