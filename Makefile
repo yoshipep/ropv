@@ -1,7 +1,10 @@
 CC=gcc
-CFLAGS=-O2 -fPIE -Wl,-pie -D_FORTIFY_SOURCE=2 -fstack-protector# Comprobar la necesidad de los dos ultimos flags
+CFLAGS=-O2 -fPIE -Wl,-pie -D_FORTIFY_SOURCE=2 -fstack-protector# TODO: Comprobar la necesidad de los dos ultimos flags
 INCLUDE=-I ./include
-DBG=-Wall -O0 -ggdb
+RELDIR=release
+DBG=0
+DBGDIR=debug
+DBGCFLAGS=-Wall -O0 -ggdb
 SOURCES=./src/main.c ./src/disas.c
 OBJS=$(SOURCES:.c=.o)
 
@@ -9,18 +12,23 @@ OBJS=$(SOURCES:.c=.o)
 #$^ = La expansión que hay a la derecha de los dos puntos
 #$< = Expansion de uno de los objetos que hay a la derecha de los dos puntos
 
-ropv: $(OBJS)
+$(RELDIR)/ropv: $(OBJS)
 	$(CC) $^ $(INCLUDE) $(CFLAGS) -o $@
 
-debug: $(OBJS)
-	$(CC) $^ $(INCLUDE) $(DBG) -o $@
+$(DBGDIR)/debug: $(OBJS)
+	$DBG=1
+	$(CC) $^ $(INCLUDE) $(DBGCFLAGS) -o $@
 
 %.o: %.c
+ifeq ($(DBG), 1)
+	$(CC) -c $< $(INCLUDE) $(DBGCFLAGS) -o $@
+else
 	$(CC) -c $< $(INCLUDE) $(CFLAGS) -o $@
+endif
 
 .PHONY: clean
 
 clean:
-	rm -rf *.o
+	rm -rf ./src/*.o
 
 

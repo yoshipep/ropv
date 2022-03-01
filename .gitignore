@@ -6,3 +6,8 @@ src/*.o
 ropv
 ins_grouped
 files/*
+files
+debug/*
+debug
+release/*
+release
