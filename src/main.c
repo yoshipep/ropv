@@ -18,20 +18,16 @@
 
 #include <argp.h>
 #include <stdlib.h>
+#include <string.h>
 
 #include "datatypes.h"
 #include "disas.h"
 
-const char *argp_program_version = "ropv v1.0";
-const char *argp_program_bug_address = "comes.josep2@gmail.com";
-static char doc[] = "Tool for ROP explotation (ELF binaries & RISC-V architecture)";
-static char args_doc[] = "file";
 static struct argp_option options[] = {
-    {0, 'l', "length", 0, "Set max number of instructions per gadget."},
-    {0, 'a', "all", 0, "Show all gadgets"},
-    {0, 'i', "interesting", 0, "Show most interesting gadgets"},
+    {"all", 'a', 0, 0, "Show all gadgets"},
+    {"interest", 'i', 0, 0, "Show most interesting gadgets"},
     {0, 's', "specific", 0, "Show specific gadgets. (i.e. related to sp register)"},
-    {0, 'v', "verbose", 0, "Set verbosity."},
+    {"verbose", 'v', 0, 0, "Set verbosity."},
     {0}};
 
 uint8_t verbose;
@@ -40,28 +36,17 @@ struct arguments args;
 
 static char mutuallyExclusive = 'z';
 
-static uint8_t arg_count = 4;
+const char *argp_program_version = "ropv v1.0";
+const char *argp_program_bug_address = "comes.josep2@gmail.com";
+static char doc[] = "Tool for ROP explotation (ELF binaries & RISC-V architecture)";
+static char args_doc[] = "file";
 
 static error_t parse_opt(int key, char *arg, struct argp_state *state)
 {
     struct arguments *arguments = state->input;
-    arguments->mode = FULL_MODE;
-    int tmp;
 
     switch (key)
     {
-    case 'l':
-        tmp = atoi(arg);
-        if (tmp <= 0 || tmp >= 5)
-        {
-            arguments->length = DEFAULT_LENGTH;
-        }
-        else
-        {
-            arguments->length = tmp;
-        }
-        break;
-
     case 'a':
         if (mutuallyExclusive == 'z')
         {
@@ -70,9 +55,10 @@ static error_t parse_opt(int key, char *arg, struct argp_state *state)
         }
         else
         {
-            argp_failure(state, 1, 1, "Invalid argument combination. Options -a, -s and -i are mutually exclusive.");
+            argp_failure(state, 1, 1, "Invalid argument combination. Options -a, -s and -i are mutually exclusive");
         }
         break;
+
     case 'i':
         if (mutuallyExclusive == 'z')
         {
@@ -81,7 +67,7 @@ static error_t parse_opt(int key, char *arg, struct argp_state *state)
         }
         else
         {
-            argp_failure(state, 1, 1, "Invalid argument combination. Options -a, -s and -i are mutually exclusive.");
+            argp_failure(state, 1, 1, "Invalid argument combination. Options -a, -s and -i are mutually exclusive");
         }
         break;
 
@@ -89,11 +75,18 @@ static error_t parse_opt(int key, char *arg, struct argp_state *state)
         if (mutuallyExclusive == 'z')
         {
             arguments->mode = SPECIFIC_MODE;
+            // TODO: Specify register that can be traced
+            if (arg[0] == '\'' || arg[0] == 0x20)
+            {
+                argp_failure(state, 1, 1, "Invalid register to trace");
+                return 1;
+            }
+            arguments->regToTrace = arg;
             mutuallyExclusive = 's';
         }
         else
         {
-            argp_failure(state, 1, 1, "Invalid argument combination. Options -a, -s and -i are mutually exclusive.");
+            argp_failure(state, 1, 1, "Invalid argument combination. Options -a, -s and -i are mutually exclusive");
         }
         break;
 
@@ -127,16 +120,12 @@ static error_t parse_opt(int key, char *arg, struct argp_state *state)
 
 static struct argp argp = {options, parse_opt, args_doc, doc, 0, 0, 0};
 
-int main(int argc, char **argv)
+int main(int argc, char *argv[])
 {
+    args.mode = FULL_MODE;
     argp_parse(&argp, argc, argv, 0, 0, &args);
 
-    if (args.length != DEFAULT_LENGTH)
-    {
-        args.length = args.length;
-    }
-
-    printf("%d\t%s\t%d\n", args.length, args.file, args.mode);
+    printf("%d\t%s\t%d\t%s\n", verbose, args.file, args.mode, args.regToTrace);
     disassemble("/home/josep/Desktop/ropv/files/a.out");
     return 0;
 }
