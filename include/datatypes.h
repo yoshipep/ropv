@@ -21,8 +21,6 @@
 
 #include <stdint.h>
 
-#define DEFAULT_LENGTH 3
-
 typedef uint32_t addr32_t;
 
 /*Todos los gadgets, los más interesantes, todos los relacionados con x registro*/
@@ -51,7 +49,8 @@ typedef enum
     CALL,
     BRK,
     NOT,
-    NEG
+    NEG,
+    RET
 } op_t;
 
 typedef enum
@@ -66,10 +65,10 @@ typedef enum
 
 struct arguments
 {
-    uint8_t length;
     char *file;
     program_mode_t mode;
     uint8_t arg_num;
+    char *regToTrace;
 };
 
 typedef struct ins32_t
