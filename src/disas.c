@@ -26,6 +26,8 @@
 #include "datatypes.h"
 #include "disas.h"
 
+static ins32_t preliminary_gadget_list[100];
+
 static inline uint8_t checkArch(Elf32_Half arch);
 
 static inline uint8_t getBits(Elf32_Ehdr *header);
@@ -40,6 +42,10 @@ static void setInmediate(struct ins32_t *instruction);
 
 static void setShift(struct ins32_t *instruction);
 
+static inline uint8_t pushToPGL(struct ins32_t instruction);
+
+static void processGadgets();
+
 static inline uint8_t checkArch(Elf32_Half arch)
 {
     return arch == 243;
@@ -49,6 +55,13 @@ static inline uint8_t getBits(Elf32_Ehdr *header)
 {
     /*If value equals to 2, the binary is from a 64 bits arch*/
     return (*header).e_ident[EI_CLASS] != 2 ? 1 : 0;
+}
+
+static inline uint8_t pushToPGL(struct ins32_t instruction)
+{
+    static size_t pos = 0;
+    preliminary_gadget_list[pos % 100] = instruction;
+    return (uint8_t)pos++;
 }
 
 static uint8_t process_elf(char *elfFile)
@@ -296,14 +309,15 @@ static uint8_t parseContent(char *assemblyFile)
             strncpy(current.disassembled, &line[startPos], endPos - startPos);
 
             fillData(&current);
+            pushToPGL(current);
+
+            if (current.type == RET)
+            {
+                start = 0;
+                processGadgets();
+            }
 
             nIns += 4;
-            printf("0x%08x: \t%s\t%d\n", current.address, current.disassembled, current.mode);
-
-            if (current.useShift)
-            {
-                printf("%s\n", current.regToShift);
-            }
         }
 
     } while (read);
@@ -376,6 +390,12 @@ static void fillData(struct ins32_t *instruction)
         instruction->useShift = 0;
         instruction->useImmediate = 0;
         instruction->mode = 0;
+        break;
+
+    case 'r':
+        instruction->operation = RET;
+        instruction->useShift = 0;
+        instruction->useImmediate = 0;
         break;
 
     case 'n':
@@ -563,6 +583,20 @@ static void setShift(struct ins32_t *instruction)
     {
         instruction->type = SRAI;
     }
+}
 
-    // instruction->regToShift[2] = '\0';
+static void processGadgets()
+{
+
+    switch (arguments.mode)
+    {
+    case FULL_MODE:
+        break;
+    case INTEREST_MODE:
+        break;
+    case SPECIFIC_MODE:
+        break;
+    default:
+        break;
+    }
 }
