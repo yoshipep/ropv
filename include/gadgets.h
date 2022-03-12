@@ -16,18 +16,17 @@
  *  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
-#ifndef _DISAS_H
-#define _DISAS_H 1
+#ifndef _GADGETS_H
+#define _GADGETS_H 1
 
-#define DEFAULT_PERM 0644
-#define DUMMY_FILE "/tmp/disas.s"
+#include <stdint.h>
 
-#include <elf.h>
+void fillData(struct ins32_t *instruction);
 
-#include "datatypes.h"
-
-uint8_t disassemble(char *elfFile);
+void processGadgets();
 
 extern uint8_t verbose;
+
+extern struct arguments arguments;
 
 #endif

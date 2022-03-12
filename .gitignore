@@ -1,7 +1,5 @@
 .vscode/*
 .vscode
-dist/*
-dist
 src/*.o
 ropv
 ins_grouped
