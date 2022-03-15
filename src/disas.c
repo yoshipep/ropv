@@ -235,7 +235,8 @@ static uint8_t parseContent(char *assemblyFile)
         }
 
         // Check if the line is the start of a function
-        if (!start && ':' == line[strlen(line) - 2] && (line[0] - '0' >= 0 && line[0] - '0' <= 9) && !strstr(line, "_PROCEDURE_LINKAGE_TABLE_"))
+        if (!start && ':' == line[strlen(line) - 2] && (line[0] - '0' >= 0 && line[0] - '0' <= 9) &&
+            !strstr(line, "_PROCEDURE_LINKAGE_TABLE_"))
         {
             start = 1;
             address = malloc(sizeof(char) * 8);
@@ -273,7 +274,7 @@ static uint8_t parseContent(char *assemblyFile)
             while (line[startPos] && nTabs < 2)
             {
                 startPos++;
-                if (line[startPos] == 0x9)
+                if (0x9 == line[startPos])
                 {
                     nTabs++;
                 }
@@ -287,7 +288,7 @@ static uint8_t parseContent(char *assemblyFile)
 
             fillData(&current);
 
-            if (current.type == RET)
+            if (RET == current.type)
             {
                 start = 0;
                 processGadgets();

@@ -177,7 +177,8 @@ void fillData(struct ins32_t *instruction)
             instruction->useImmediate = 0;
         }
 
-        else if (strstr(instruction->disassembled, "se") || strstr(instruction->disassembled, "slt") || strstr(instruction->disassembled, "sn") || strstr(instruction->disassembled, "sg"))
+        else if (strstr(instruction->disassembled, "se") || strstr(instruction->disassembled, "slt") ||
+                 strstr(instruction->disassembled, "sn") || strstr(instruction->disassembled, "sg"))
         {
             instruction->operation = SET;
             instruction->mode = 0b0011;
@@ -239,7 +240,7 @@ static void setInmediate(struct ins32_t *instruction)
         goto liberate;
     }
 
-    while (instruction->disassembled[startPos - 1] != ',')
+    while (',' != instruction->disassembled[startPos - 1])
     {
         startPos--;
     }
