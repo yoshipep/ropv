@@ -26,7 +26,6 @@
 static struct argp_option options[] = {
     {"all", 'a', 0, 0, "Show all gadgets"},
     {"interest", 'i', 0, 0, "Show most interesting gadgets"},
-    {0, 's', "specific", 0, "Show specific gadgets. (i.e. related to sp register)"},
     {"verbose", 'v', 0, 0, "Set verbosity."},
     {0}};
 
@@ -55,7 +54,7 @@ static error_t parse_opt(int key, char *arg, struct argp_state *state)
         }
         else
         {
-            argp_failure(state, 1, 1, "Invalid argument combination. Options -a, -s and -i are mutually exclusive");
+            argp_failure(state, 1, 1, "Invalid argument combination. Options -a and -i are mutually exclusive");
         }
         break;
 
@@ -67,26 +66,7 @@ static error_t parse_opt(int key, char *arg, struct argp_state *state)
         }
         else
         {
-            argp_failure(state, 1, 1, "Invalid argument combination. Options -a, -s and -i are mutually exclusive");
-        }
-        break;
-
-    case 's':
-        if (mutuallyExclusive == 'z')
-        {
-            arguments->mode = SPECIFIC_MODE;
-            // TODO: Specify register that can be traced
-            if (arg[0] == '\'' || arg[0] == 0x20)
-            {
-                argp_failure(state, 1, 1, "Invalid register to trace");
-                return 1;
-            }
-            arguments->regToTrace = arg;
-            mutuallyExclusive = 's';
-        }
-        else
-        {
-            argp_failure(state, 1, 1, "Invalid argument combination. Options -a, -s and -i are mutually exclusive");
+            argp_failure(state, 1, 1, "Invalid argument combination. Options -a and -i are mutually exclusive");
         }
         break;
 
@@ -125,7 +105,7 @@ int main(int argc, char *argv[])
     args.mode = FULL_MODE;
     argp_parse(&argp, argc, argv, 0, 0, &args);
 
-    printf("%d\t%s\t%d\t%s\n", verbose, args.file, args.mode, args.regToTrace);
+    printf("%d\t%s\t%d\n", verbose, args.file, args.mode);
     disassemble("/home/josep/Desktop/ropv/files/a.out");
     return 0;
 }

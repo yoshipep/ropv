@@ -16,25 +16,17 @@
  *  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
-#ifndef _GADGETS_H
-#define _GADGETS_H 1
+#ifndef _ERRORS_H
+#define _ERRORS_H 1
 
-#define MAX_LENGTH 5
-
-#include <stdint.h>
-
-void processGadgets();
-
-extern uint8_t verbose;
-
-extern struct arguments args;
-
-extern ins32_t *preliminary_gadget_list[100];
-
-typedef struct gadget_t
-{
-    ins32_t *instructions[5];
-    uint8_t length;
-} gadget_t;
+#define EBARCH 0X1
+#define EINV 0X2
+#define EBIT 0X3
+#define EIFILE 0X4
+#define ERED 0X5
+#define EIO 0X6
+#define ECHILD 0X7
+#define ECREAT 0X8
+#define EOPEN 0x9
 
 #endif

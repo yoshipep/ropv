@@ -27,8 +27,7 @@ typedef uint32_t addr32_t;
 typedef enum
 {
     FULL_MODE,
-    INTEREST_MODE,
-    SPECIFIC_MODE
+    INTEREST_MODE
 } program_mode_t;
 
 typedef enum
@@ -38,7 +37,6 @@ typedef enum
     CMP,
     JMP,
     ADD,
-    XOR,
     OR,
     AND,
     SHIFT,
@@ -68,7 +66,6 @@ struct arguments
     char *file;
     program_mode_t mode;
     uint8_t arg_num;
-    char *regToTrace;
 };
 
 typedef struct ins32_t
