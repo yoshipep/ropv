@@ -49,7 +49,7 @@ static error_t parse_opt(int key, char *arg, struct argp_state *state)
     case 'a':
         if (mutuallyExclusive == 'z')
         {
-            arguments->mode = FULL_MODE;
+            arguments->mode = GENERIC_MODE;
             mutuallyExclusive = 'a';
         }
         else
@@ -102,10 +102,10 @@ static struct argp argp = {options, parse_opt, args_doc, doc, 0, 0, 0};
 
 int main(int argc, char *argv[])
 {
-    args.mode = FULL_MODE;
+    args.mode = GENERIC_MODE;
     argp_parse(&argp, argc, argv, 0, 0, &args);
 
     printf("%d\t%s\t%d\n", verbose, args.file, args.mode);
-    disassemble("/home/josep/Desktop/ropv/files/a.out");
+    disassemble("/home/josep/Desktop/ropv/files/example");
     return 0;
 }

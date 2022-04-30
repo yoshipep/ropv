@@ -16,6 +16,7 @@
  *  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
@@ -23,30 +24,35 @@
 #include "datatypes.h"
 #include "gadgets.h"
 
-static inline __attribute__((always_inline)) uint8_t checkValidity(ins32_t *instruction);
+static void printGadget(gadget_t *gadget);
 
-static inline __attribute__((always_inline)) uint8_t checkValidity(ins32_t *instruction)
+static __attribute__((always_inline)) inline uint8_t checkValidity(ins32_t *instruction);
+
+static __attribute__((always_inline)) inline uint8_t checkValidity(ins32_t *instruction)
 {
-    return instruction->operation == CMP || instruction->operation == JMP ||
-           instruction->operation == BRK || instruction->operation == STORE ||
-           instruction->operation == RET || !strstr(instruction->disassembled, "auipc");
+    return instruction->operation != CMP && instruction->operation != JMP &&
+           instruction->operation != BRK && instruction->operation != STORE &&
+           instruction->operation != RET && !strstr(instruction->disassembled, "auipc");
 }
 
-void processGadgets()
+void processGadgets(uint8_t lastElement)
 {
-    uint8_t i;
+
+    if (verbose)
+    {
+        puts("[+] Selecting gadgets");
+    }
+
     gadget_t *gadget = (gadget_t *)malloc(sizeof(gadget_t));
     switch (args.mode)
     {
-    case FULL_MODE:
-        i = 99;
+    case GENERIC_MODE:
         gadget->length = 0;
-
-        while (i > 94 || !checkValidity(preliminary_gadget_list[i]))
+        gadget->instructions[gadget->length++] = preliminary_gadget_list[lastElement];
+        while (gadget->length < MAX_LENGTH && checkValidity(preliminary_gadget_list[lastElement - gadget->length]))
         {
-            gadget->instructions[gadget->length] = preliminary_gadget_list[i];
+            gadget->instructions[gadget->length] = preliminary_gadget_list[lastElement - gadget->length];
             gadget->length++;
-            i--;
         }
         break;
     case INTEREST_MODE:
@@ -54,4 +60,20 @@ void processGadgets()
     default:
         break;
     }
+}
+
+static void printGadget(gadget_t *gadget)
+{
+
+    int8_t i;
+
+    for (i = gadget->length - 1; i >= 0; i--)
+    {
+        if (gadget->length - 1 == i)
+        {
+            printf("%#08x:", gadget->instructions[i]->address);
+        }
+        printf("%s;", gadget->instructions[i]->disassembled);
+    }
+    printf("\n");
 }

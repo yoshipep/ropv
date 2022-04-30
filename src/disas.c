@@ -42,8 +42,6 @@ static __attribute__((always_inline)) inline uint8_t checkArch(Elf32_Half arch);
 
 static __attribute__((always_inline)) inline uint8_t getBits(Elf32_Ehdr *header);
 
-static __attribute__((always_inline)) inline void initializePGL();
-
 static __attribute__((always_inline)) inline uint8_t pushToPGL(struct ins32_t *instruction);
 
 static __attribute__((always_inline)) inline uint8_t pushToPGL(struct ins32_t *instruction)
@@ -53,21 +51,12 @@ static __attribute__((always_inline)) inline uint8_t pushToPGL(struct ins32_t *i
     return pos++ % 100;
 }
 
-static __attribute__((always_inline)) inline void initializePGL()
-{
-    for (uint8_t i = 0; i < 100; i++)
-    {
-        preliminary_gadget_list[i] = (ins32_t *)malloc(sizeof(ins32_t));
-        memset(&(*preliminary_gadget_list[i]), 0x0, sizeof(ins32_t));
-    }
-}
-
-static inline __attribute__((always_inline)) uint8_t checkArch(Elf32_Half arch)
+static __attribute__((always_inline)) inline uint8_t checkArch(Elf32_Half arch)
 {
     return arch == 243;
 }
 
-static inline __attribute__((always_inline)) uint8_t getBits(Elf32_Ehdr *header)
+static __attribute__((always_inline)) inline uint8_t getBits(Elf32_Ehdr *header)
 {
     /*If value equals to 2, the binary is from a 64 bits arch*/
     return (*header).e_ident[EI_CLASS] == 2 ? EBARCH : 0;
@@ -237,7 +226,7 @@ static uint8_t parseContent(char *assemblyFile)
 
     FILE *file;
     char *line, *address, *pos;
-    uint8_t nIns, nTabs;
+    uint8_t nIns, nTabs, last;
     int32_t baseAddress, endPos;
     size_t startPos;
     uint8_t start = 0;
@@ -263,7 +252,10 @@ static uint8_t parseContent(char *assemblyFile)
         puts("[+] Parsing the content");
     }
 
-    initializePGL();
+    if (verbose)
+    {
+        puts("[+] Extracting gadgets");
+    }
     do
     {
         read = getline(&line, &len, file) != -1;
@@ -312,7 +304,7 @@ static uint8_t parseContent(char *assemblyFile)
             while (line[startPos] && nTabs < 2)
             {
                 startPos++;
-                if (0x9 == line[startPos])
+                if (0x9 == line[startPos]) // Tab
                 {
                     nTabs++;
                 }
@@ -324,12 +316,12 @@ static uint8_t parseContent(char *assemblyFile)
             current->disassembled = (char *)malloc(sizeof(char) * (endPos - startPos));
             strncpy(current->disassembled, &line[startPos], endPos - startPos);
 
-            fillData(current);
+            last = fillData(current);
 
-            if (RET == current->type)
+            if (RET == current->operation)
             {
                 start = 0;
-                processGadgets();
+                processGadgets(last);
             }
 
             nIns += 4;
@@ -340,7 +332,7 @@ static uint8_t parseContent(char *assemblyFile)
     return 0;
 }
 
-void fillData(struct ins32_t *instruction)
+uint8_t fillData(struct ins32_t *instruction)
 {
     char start = instruction->disassembled[0];
 
@@ -506,12 +498,9 @@ void fillData(struct ins32_t *instruction)
             instruction->useImmediate = 0;
         }
         break;
-
-    default:
-        return;
     }
 
-    pushToPGL(instruction);
+    return pushToPGL(instruction);
 }
 
 static void setInmediate(struct ins32_t *instruction)

@@ -23,7 +23,7 @@
 
 #include <stdint.h>
 
-void processGadgets();
+void processGadgets(uint8_t lastElement);
 
 extern uint8_t verbose;
 
@@ -33,7 +33,7 @@ extern ins32_t *preliminary_gadget_list[100];
 
 typedef struct gadget_t
 {
-    ins32_t *instructions[5];
+    ins32_t *instructions[MAX_LENGTH];
     uint8_t length;
 } gadget_t;
 

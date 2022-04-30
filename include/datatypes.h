@@ -26,7 +26,7 @@ typedef uint32_t addr32_t;
 /*Todos los gadgets, los más interesantes, todos los relacionados con x registro*/
 typedef enum
 {
-    FULL_MODE,
+    GENERIC_MODE,
     INTEREST_MODE
 } program_mode_t;
 
