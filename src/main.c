@@ -24,16 +24,13 @@
 #include "disas.h"
 
 static struct argp_option options[] = {
-    {"all", 'a', 0, 0, "Show all gadgets"},
+    {"all", 'a', 0, 0, "Show all gadgets. Option selected by default"},
     {"interest", 'i', 0, 0, "Show most interesting gadgets"},
-    {"verbose", 'v', 0, 0, "Set verbosity."},
     {0}};
-
-uint8_t verbose;
 
 struct arguments args;
 
-static char mutuallyExclusive = 'z';
+static uint8_t mutuallyExclusive = 0;
 
 const char *argp_program_version = "ropv v1.0";
 const char *argp_program_bug_address = "comes.josep2@gmail.com";
@@ -47,10 +44,10 @@ static error_t parse_opt(int key, char *arg, struct argp_state *state)
     switch (key)
     {
     case 'a':
-        if (mutuallyExclusive == 'z')
+        if (0 == mutuallyExclusive)
         {
             arguments->mode = GENERIC_MODE;
-            mutuallyExclusive = 'a';
+            mutuallyExclusive = 1;
         }
         else
         {
@@ -59,19 +56,15 @@ static error_t parse_opt(int key, char *arg, struct argp_state *state)
         break;
 
     case 'i':
-        if (mutuallyExclusive == 'z')
+        if (0 == mutuallyExclusive)
         {
             arguments->mode = INTEREST_MODE;
-            mutuallyExclusive = 'i';
+            mutuallyExclusive = 1;
         }
         else
         {
             argp_failure(state, 1, 1, "Invalid argument combination. Options -a and -i are mutually exclusive");
         }
-        break;
-
-    case 'v':
-        verbose = 1;
         break;
 
     case ARGP_KEY_ARG:
@@ -105,7 +98,7 @@ int main(int argc, char *argv[])
     args.mode = GENERIC_MODE;
     argp_parse(&argp, argc, argv, 0, 0, &args);
 
-    printf("%d\t%s\t%d\n", verbose, args.file, args.mode);
+    printf("%s\t%d\n", args.file, args.mode);
     disassemble("/home/josep/Desktop/ropv/files/example");
     return 0;
 }

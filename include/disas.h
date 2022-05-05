@@ -30,6 +30,4 @@ uint8_t disassemble(char *elfFile);
 
 uint8_t fillData(struct ins32_t *instruction);
 
-extern uint8_t verbose;
-
 #endif

@@ -25,8 +25,6 @@
 
 void processGadgets(uint8_t lastElement);
 
-extern uint8_t verbose;
-
 extern struct arguments args;
 
 extern ins32_t *preliminary_gadget_list[100];

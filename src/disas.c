@@ -68,11 +68,6 @@ static uint8_t process_elf(char *elfFile)
     FILE *file;
     uint8_t res;
 
-    if (verbose)
-    {
-        puts("[+] Opening the file");
-    }
-
     file = fopen(elfFile, "rb");
     if (file)
     {
@@ -83,23 +78,11 @@ static uint8_t process_elf(char *elfFile)
             // check so its really an elf file
             if (memcmp(header.e_ident, ELFMAG, SELFMAG) == 0)
             {
-                if (verbose)
-                {
-                    puts("[+] Checking architecture");
-                }
                 if (checkArch(header.e_machine))
                 {
-                    if (verbose)
-                    {
-                        puts("[+] Checking bitness");
-                    }
 
                     if (!getBits(&header))
                     {
-                        if (verbose)
-                        {
-                            puts("[+] Checking program headers");
-                        }
 
                         if (header.e_phnum)
                         {
@@ -151,11 +134,6 @@ uint8_t disassemble(char *elfFile)
 
     char *args[] = {"/opt/rv32/bin/riscv32-unknown-linux-gnu-objdump", "-d", elfFile, NULL};
 
-    if (verbose)
-    {
-        puts("[+] Creating dummy file");
-    }
-
     fd = open(DUMMY_FILE, O_WRONLY | O_CREAT, DEFAULT_PERM);
     if (fd)
     {
@@ -172,10 +150,6 @@ uint8_t disassemble(char *elfFile)
             goto fail;
         }
 
-        if (verbose)
-        {
-            puts("[+] Dissasembling the binary");
-        }
         child = fork();
 
         if (!child)
@@ -233,11 +207,6 @@ static uint8_t parseContent(char *assemblyFile)
     size_t len = 0;
     ssize_t read = -1;
 
-    if (verbose)
-    {
-        puts("[+] Opening dummy file");
-    }
-
     file = fopen(assemblyFile, "r");
 
     if (!file)
@@ -247,15 +216,6 @@ static uint8_t parseContent(char *assemblyFile)
     }
     // unlink(assemblyFile);
 
-    if (verbose)
-    {
-        puts("[+] Parsing the content");
-    }
-
-    if (verbose)
-    {
-        puts("[+] Extracting gadgets");
-    }
     do
     {
         read = getline(&line, &len, file) != -1;
