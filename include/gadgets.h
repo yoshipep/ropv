@@ -19,8 +19,6 @@
 #ifndef _GADGETS_H
 #define _GADGETS_H 1
 
-#define MAX_LENGTH 5
-
 #include <stdint.h>
 
 void processGadgets(uint8_t lastElement);
@@ -28,11 +26,5 @@ void processGadgets(uint8_t lastElement);
 extern struct arguments args;
 
 extern ins32_t *preliminary_gadget_list[100];
-
-typedef struct gadget_t
-{
-    ins32_t *instructions[MAX_LENGTH];
-    uint8_t length;
-} gadget_t;
 
 #endif

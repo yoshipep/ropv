@@ -35,9 +35,9 @@ static __attribute__((always_inline)) inline uint8_t checkValidity(ins32_t *inst
 
 static __attribute__((always_inline)) inline uint8_t checkValidity(ins32_t *instruction)
 {
-    return instruction->operation != CMP && instruction->operation != JMP &&
-           instruction->operation != BRK && instruction->operation != STORE &&
-           instruction->operation != RET && !strstr(instruction->disassembled, "auipc");
+    return CMP != instruction->operation && JMP != instruction->operation &&
+           BRK != instruction->operation && STORE != instruction->operation &&
+           RET != instruction->operation && !strstr(instruction->disassembled, "auipc");
 }
 
 void processGadgets(uint8_t lastElement)
@@ -101,9 +101,9 @@ static char *prettifyString(char *src)
         }
         if (',' == last)
         {
-            buf[i++] = 0x20;
+            buf[i++] = 0x20; // Space
         }
-        buf[i++] = 0x9 == *trimmed ? ' ' : *trimmed;
+        buf[i++] = 0x9 == *trimmed ? ' ' : *trimmed; // Tab
         last = *trimmed;
         trimmed++;
     }
@@ -117,7 +117,6 @@ static char *prettifyString(char *src)
 
 static void printGadget(gadget_t *gadget)
 {
-
     int8_t i;
 
     for (i = gadget->length - 1; i >= 0; i--)
@@ -136,5 +135,5 @@ static void printGadget(gadget_t *gadget)
             printf("%s;%c", prettified, 0x20);
         }
     }
-    putchar(0x0a);
+    putchar(0x0a); // Newline
 }

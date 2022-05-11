@@ -5,7 +5,7 @@ RELDIR=release
 DBG=0
 DBGDIR=debug
 DBGCFLAGS=-Wall -O0 -ggdb
-SOURCES=./src/main.c ./src/disas.c ./src/gadgets.c
+SOURCES=./src/ropv.c ./src/disas.c ./src/gadgets.c
 OBJS=$(SOURCES:.c=.o)
 
 #$@ = Target de esa regla, en el primer caso es main

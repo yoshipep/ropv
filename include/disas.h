@@ -19,11 +19,6 @@
 #ifndef _DISAS_H
 #define _DISAS_H 1
 
-#define DEFAULT_PERM 0644
-#define DUMMY_FILE "/tmp/disas.s"
-
-#include <elf.h>
-
 #include "datatypes.h"
 
 uint8_t disassemble(char *elfFile);

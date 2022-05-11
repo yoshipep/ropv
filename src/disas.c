@@ -16,6 +16,7 @@
  *  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
+#include <elf.h>
 #include <fcntl.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -27,6 +28,9 @@
 #include "errors.h"
 #include "disas.h"
 #include "gadgets.h"
+
+#define DEFAULT_PERM 0644
+#define DUMMY_FILE "/tmp/disas.s"
 
 ins32_t *preliminary_gadget_list[100];
 
@@ -69,60 +73,51 @@ static uint8_t process_elf(char *elfFile)
     uint8_t res;
 
     file = fopen(elfFile, "rb");
-    if (file)
+
+    if (!file)
     {
-
-        if (fread(&header, sizeof(header), 1, file))
-        {
-
-            // check so its really an elf file
-            if (memcmp(header.e_ident, ELFMAG, SELFMAG) == 0)
-            {
-                if (checkArch(header.e_machine))
-                {
-
-                    if (!getBits(&header))
-                    {
-
-                        if (header.e_phnum)
-                        {
-                            res = 0;
-                        }
-                        else
-                        {
-                            fprintf(stderr, "[-] Invalid ELF file\n");
-                            res = EIFILE;
-                        }
-                    }
-
-                    else
-                    {
-                        fprintf(stderr, "[-] Bitness not suported\n");
-                        res = EBIT;
-                    }
-                }
-
-                else
-                {
-                    fprintf(stderr, "[-] Bad architecture\n");
-                    res = EBARCH;
-                }
-            }
-
-            else
-            {
-                fprintf(stderr, "[-] Not an ELF file\n");
-                res = EIFILE;
-            }
-        }
-
-        else
-        {
-            fprintf(stderr, "[-] Error while reading the ELF file\n");
-            res = EIO;
-        }
-        fclose(file);
+        fprintf(stderr, "[-] Error while opening the file\n");
+        return EOPEN;
     }
+    res = 0;
+
+    if (!fread(&header, sizeof(header), 1, file))
+    {
+        fprintf(stderr, "[-] Error while reading the ELF file\n");
+        res = EIO;
+        goto close;
+    }
+
+    // check so its really an elf file
+    if (!memcmp(header.e_ident, ELFMAG, SELFMAG) == 0)
+    {
+        fprintf(stderr, "[-] Not an ELF file\n");
+        res = EIFILE;
+        goto close;
+    }
+    if (!checkArch(header.e_machine))
+    {
+        fprintf(stderr, "[-] Bad architecture\n");
+        res = EBARCH;
+        goto close;
+    }
+
+    if (getBits(&header))
+    {
+        fprintf(stderr, "[-] Bitness not suported\n");
+        res = EBIT;
+        goto close;
+    }
+
+    if (!header.e_phnum)
+    {
+        fprintf(stderr, "[-] Invalid ELF file\n");
+        res = EIFILE;
+        goto close;
+    }
+
+close:
+    fclose(file);
     return res;
 }
 
@@ -135,52 +130,47 @@ uint8_t disassemble(char *elfFile)
     char *args[] = {"/opt/rv32/bin/riscv32-unknown-linux-gnu-objdump", "-d", elfFile, NULL};
 
     fd = open(DUMMY_FILE, O_WRONLY | O_CREAT, DEFAULT_PERM);
-    if (fd)
-    {
-        tempfd = open("/dev/null", O_WRONLY);
-        if (!tempfd)
-        {
-            fprintf(stderr, "[-] Unable to open /dev/null\n");
-            res = EOPEN;
-            goto fail;
-        }
-
-        if (process_elf(elfFile))
-        {
-            goto fail;
-        }
-
-        child = fork();
-
-        if (!child)
-        {
-            dup2(fd, STDOUT_FILENO);
-            dup2(tempfd, STDERR_FILENO);
-            close(fd);
-            close(tempfd);
-            execve(args[0], args, NULL);
-        }
-
-        close(fd);
-        close(tempfd);
-        waitpid(child, &returnStatus, 0);
-
-        if (returnStatus)
-        {
-            fprintf(stderr, "[-] Program failed\n");
-            res = ECHILD;
-            goto fail;
-        }
-
-        return parseContent(DUMMY_FILE);
-    }
-
-    else
+    if (!fd)
     {
         fprintf(stderr, "[-] Unable to create a dummy file\n");
-        res = ECREAT;
+        return ECREAT;
+    }
+    tempfd = open("/dev/null", O_WRONLY);
+    if (!tempfd)
+    {
+        fprintf(stderr, "[-] Unable to open /dev/null\n");
+        res = EOPEN;
         goto fail;
     }
+
+    if (process_elf(elfFile))
+    {
+        goto fail;
+    }
+
+    child = fork();
+
+    if (!child)
+    {
+        dup2(fd, STDOUT_FILENO);
+        dup2(tempfd, STDERR_FILENO);
+        close(fd);
+        close(tempfd);
+        execve(args[0], args, NULL);
+    }
+
+    close(fd);
+    close(tempfd);
+    waitpid(child, &returnStatus, 0);
+
+    if (returnStatus)
+    {
+        fprintf(stderr, "[-] Program failed\n");
+        res = ECHILD;
+        goto fail;
+    }
+
+    return parseContent(DUMMY_FILE);
 
 fail:
     if (fcntl(fd, F_GETFD))

@@ -19,11 +19,12 @@
 #ifndef _DATATYPES_H
 #define _DATATYPES_H 1
 
+#define MAX_LENGTH 5
+
 #include <stdint.h>
 
 typedef uint32_t addr32_t;
 
-/*Todos los gadgets, los más interesantes, todos los relacionados con x registro*/
 typedef enum
 {
     GENERIC_MODE,
@@ -80,5 +81,11 @@ typedef struct ins32_t
     uint8_t useShift;
     char regToShift[3];
 } ins32_t;
+
+typedef struct gadget_t
+{
+    ins32_t *instructions[MAX_LENGTH];
+    uint8_t length;
+} gadget_t;
 
 #endif
