@@ -189,8 +189,8 @@ static uint8_t parseContent(char *assemblyFile)
 {
 
     FILE *file;
-    char *line, *address, *pos;
-    uint8_t nIns, nTabs, last;
+    char *line, *address, *pos, *opcode;
+    uint8_t nIns, nTabs, last, bytes;
     int32_t baseAddress, endPos;
     size_t startPos;
     uint8_t start = 0;
@@ -260,8 +260,10 @@ static uint8_t parseContent(char *assemblyFile)
                 }
             }
 
+            bytes = 0;
             startPos += 1;
             ins32_t *current = (ins32_t *)malloc(sizeof(ins32_t));
+            memset(current, 0x0, sizeof(ins32_t));
             current->address = baseAddress + nIns;
             current->disassembled = (char *)malloc(sizeof(char) * (endPos - startPos));
             strncpy(current->disassembled, &line[startPos], endPos - startPos);
@@ -274,7 +276,13 @@ static uint8_t parseContent(char *assemblyFile)
                 processGadgets(last);
             }
 
-            nIns += 4;
+            opcode = strstr(line, "\t") + 1;
+            while (0x20 != *opcode++)
+            {
+                bytes++;
+            }
+
+            nIns += bytes / 2;
         }
 
     } while (read);
