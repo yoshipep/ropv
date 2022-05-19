@@ -21,6 +21,7 @@
 
 #define MAX_LENGTH 5
 
+#include <stdbool.h>
 #include <stdint.h>
 
 typedef uint32_t addr32_t;

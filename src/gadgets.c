@@ -33,25 +33,47 @@ static char *trim(char *str);
 
 static __attribute__((always_inline)) inline uint8_t checkValidity(ins32_t *instruction);
 
+static __attribute__((always_inline)) inline uint8_t messSp(ins32_t *instruction);
+
 static __attribute__((always_inline)) inline uint8_t checkValidity(ins32_t *instruction)
 {
-    return CMP != instruction->operation && JMP != instruction->operation &&
-           BRK != instruction->operation && STORE != instruction->operation &&
-           RET != instruction->operation && !strstr(instruction->disassembled, "auipc");
+    return (CMP != instruction->operation) && (JMP != instruction->operation) &&
+           (BRK != instruction->operation) && (RET != instruction->operation) &&
+           !strstr(instruction->disassembled, "auipc") && !messSp(instruction);
+}
+
+static __attribute__((always_inline)) inline uint8_t messSp(ins32_t *instruction)
+{
+    return (ADD == instruction->operation && instruction->useImmediate && instruction->immediate < 0 &&
+            strstr(instruction->disassembled, "addi\tsp")) ||
+           (SUB == instruction->operation && strstr(instruction->disassembled, "sub\tsp"));
 }
 
 void processGadgets(uint8_t lastElement)
 {
+    uint8_t current;
     gadget_t *gadget = (gadget_t *)malloc(sizeof(gadget_t));
+
     switch (args.mode)
     {
     case GENERIC_MODE:
-        gadget->length = 0;
-        gadget->instructions[gadget->length++] = preliminary_gadget_list[lastElement];
-        while (gadget->length < MAX_LENGTH && checkValidity(preliminary_gadget_list[lastElement - gadget->length]))
+        gadget->instructions[0] = preliminary_gadget_list[lastElement];
+        gadget->length = 1;
+        current = 0 == lastElement ? 99 : lastElement - gadget->length;
+        while (gadget->length < MAX_LENGTH && checkValidity(preliminary_gadget_list[current]))
         {
-            gadget->instructions[gadget->length] = preliminary_gadget_list[lastElement - gadget->length];
+            gadget->instructions[gadget->length] = preliminary_gadget_list[current];
             gadget->length++;
+            if (0 == current)
+            {
+                current = 99;
+            }
+            else
+            {
+                current--;
+                if (0 == current)
+                    current = 99;
+            }
         }
         break;
     case INTEREST_MODE:
@@ -60,6 +82,8 @@ void processGadgets(uint8_t lastElement)
         break;
     }
     printGadget(gadget);
+    free(gadget);
+    gadget = NULL;
 }
 
 static char *trim(char *str)

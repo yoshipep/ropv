@@ -98,7 +98,6 @@ int main(int argc, char *argv[])
     args.mode = GENERIC_MODE;
     argp_parse(&argp, argc, argv, 0, 0, &args);
 
-    printf("%s\t%d\n", args.file, args.mode);
-    disassemble("/home/josep/Desktop/ropv/files/example");
+    disassemble(args.file);
     return 0;
 }

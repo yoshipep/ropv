@@ -42,9 +42,9 @@ static uint8_t process_elf(char *elfFile);
 
 static uint8_t parseContent(char *assemblyFile);
 
-static __attribute__((always_inline)) inline uint8_t checkArch(Elf32_Half arch);
+static __attribute__((always_inline)) inline bool checkArch(Elf32_Half arch);
 
-static __attribute__((always_inline)) inline uint8_t getBits(Elf32_Ehdr *header);
+static __attribute__((always_inline)) inline bool getBits(Elf32_Ehdr *header);
 
 static __attribute__((always_inline)) inline uint8_t pushToPGL(struct ins32_t *instruction);
 
@@ -55,12 +55,12 @@ static __attribute__((always_inline)) inline uint8_t pushToPGL(struct ins32_t *i
     return pos++ % 100;
 }
 
-static __attribute__((always_inline)) inline uint8_t checkArch(Elf32_Half arch)
+static __attribute__((always_inline)) inline bool checkArch(Elf32_Half arch)
 {
     return arch == 243;
 }
 
-static __attribute__((always_inline)) inline uint8_t getBits(Elf32_Ehdr *header)
+static __attribute__((always_inline)) inline bool getBits(Elf32_Ehdr *header)
 {
     /*If value equals to 2, the binary is from a 64 bits arch*/
     return (*header).e_ident[EI_CLASS] == 2 ? EBARCH : 0;
@@ -193,7 +193,7 @@ static uint8_t parseContent(char *assemblyFile)
     uint8_t nIns, nTabs, last, bytes;
     int32_t baseAddress, endPos;
     size_t startPos;
-    uint8_t start = 0;
+    uint8_t start = 0, startProcessing = 0;
     size_t len = 0;
     ssize_t read = -1;
 
@@ -214,9 +214,15 @@ static uint8_t parseContent(char *assemblyFile)
             break;
         }
 
+        if (!strstr(line, ".text:") && !startProcessing)
+        {
+            continue;
+        }
+        startProcessing = 1;
+
         // Check if the line is the start of a function
-        if (!start && ':' == line[strlen(line) - 2] && (line[0] - '0' >= 0 && line[0] - '0' <= 9) &&
-            !strstr(line, "_PROCEDURE_LINKAGE_TABLE_"))
+        if (!start && (':' == line[strlen(line) - 2]) &&
+            ((line[0] - '0' >= 0) && (line[0] - '0' <= 9)))
         {
             start = 1;
             address = malloc(sizeof(char) * 8);
@@ -232,7 +238,7 @@ static uint8_t parseContent(char *assemblyFile)
         {
             startPos = 0;
             nTabs = 0;
-            if (0xa == line[0] || strstr(line, "...") || strstr(line, "unimp"))
+            if ((0xa == line[0]) || strstr(line, "...") || strstr(line, "unimp"))
             {
                 start = 0;
                 continue;
