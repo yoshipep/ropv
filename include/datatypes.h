@@ -50,7 +50,9 @@ typedef enum
     BRK,
     NOT,
     NEG,
-    RET
+    RET,
+    ATOMIC,
+    IO
 } op_t;
 
 typedef enum
@@ -81,6 +83,7 @@ typedef struct ins32_t
     char *disassembled;
     uint8_t useShift;
     char regToShift[3];
+    char regDest[3];
 } ins32_t;
 
 typedef struct gadget_t

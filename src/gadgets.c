@@ -31,6 +31,10 @@ static char *prettifyString(char *src);
 
 static char *trim(char *str);
 
+static void basicFilter(uint8_t lastElement, gadget_t *gadget);
+
+static void advancedFilter(gadget_t *gadget);
+
 static __attribute__((always_inline)) inline uint8_t checkValidity(ins32_t *instruction);
 
 static __attribute__((always_inline)) inline uint8_t messSp(ins32_t *instruction);
@@ -39,6 +43,7 @@ static __attribute__((always_inline)) inline uint8_t checkValidity(ins32_t *inst
 {
     return (CMP != instruction->operation) && (JMP != instruction->operation) &&
            (BRK != instruction->operation) && (RET != instruction->operation) &&
+           (ATOMIC != instruction->operation) && (IO != instruction->operation) &&
            !strstr(instruction->disassembled, "auipc") && !messSp(instruction);
 }
 
@@ -49,34 +54,46 @@ static __attribute__((always_inline)) inline uint8_t messSp(ins32_t *instruction
            (SUB == instruction->operation && strstr(instruction->disassembled, "sub\tsp"));
 }
 
-void processGadgets(uint8_t lastElement)
+static void basicFilter(uint8_t lastElement, gadget_t *gadget)
 {
     uint8_t current;
+    gadget->instructions[0] = preliminary_gadget_list[lastElement];
+    gadget->length = 1;
+    current = 0 == lastElement ? 99 : lastElement - gadget->length;
+    while (gadget->length < MAX_LENGTH && checkValidity(preliminary_gadget_list[current]))
+    {
+        gadget->instructions[gadget->length] = preliminary_gadget_list[current];
+        gadget->length++;
+        if (0 == current)
+        {
+            current = 99;
+        }
+        else
+        {
+            current--;
+            if (0 == current)
+                current = 99;
+        }
+    }
+}
+
+static void advancedFilter(gadget_t *gadget)
+{
+}
+
+void processGadgets(uint8_t lastElement)
+{
+
     gadget_t *gadget = (gadget_t *)malloc(sizeof(gadget_t));
 
     switch (args.mode)
     {
     case GENERIC_MODE:
-        gadget->instructions[0] = preliminary_gadget_list[lastElement];
-        gadget->length = 1;
-        current = 0 == lastElement ? 99 : lastElement - gadget->length;
-        while (gadget->length < MAX_LENGTH && checkValidity(preliminary_gadget_list[current]))
-        {
-            gadget->instructions[gadget->length] = preliminary_gadget_list[current];
-            gadget->length++;
-            if (0 == current)
-            {
-                current = 99;
-            }
-            else
-            {
-                current--;
-                if (0 == current)
-                    current = 99;
-            }
-        }
+        basicFilter(lastElement, gadget);
         break;
     case INTEREST_MODE:
+        basicFilter(lastElement, gadget);
+        advancedFilter(gadget);
         break;
     default:
         break;

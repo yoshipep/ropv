@@ -42,6 +42,8 @@ static uint8_t process_elf(char *elfFile);
 
 static uint8_t parseContent(char *assemblyFile);
 
+static __attribute__((always_inline)) inline void setRegDest(struct ins32_t *instruction);
+
 static __attribute__((always_inline)) inline bool checkArch(Elf32_Half arch);
 
 static __attribute__((always_inline)) inline bool getBits(Elf32_Ehdr *header);
@@ -273,7 +275,6 @@ static uint8_t parseContent(char *assemblyFile)
             current->address = baseAddress + nIns;
             current->disassembled = (char *)malloc(sizeof(char) * (endPos - startPos));
             strncpy(current->disassembled, &line[startPos], endPos - startPos);
-
             last = fillData(current);
 
             if (RET == current->operation)
@@ -303,10 +304,17 @@ uint8_t fillData(struct ins32_t *instruction)
     switch (start)
     {
     case 'l':
-        instruction->operation = LOAD;
-        instruction->mode = 0b0011;
-        instruction->useImmediate = 0;
-        instruction->useShift = 0;
+        if (!strstr(instruction->disassembled, ".w"))
+        {
+            instruction->operation = LOAD;
+            instruction->mode = 0b0011;
+            instruction->useImmediate = 0;
+            instruction->useShift = 0;
+        }
+        else
+        {
+            instruction->operation = ATOMIC;
+        }
         break;
 
     case 'b':
@@ -392,78 +400,97 @@ uint8_t fillData(struct ins32_t *instruction)
         break;
 
     case 'a':
-        if (strstr(instruction->disassembled, "ad") || strstr(instruction->disassembled, "au"))
+        if (!strstr(instruction->disassembled, ".w"))
         {
-            instruction->operation = ADD;
-            instruction->mode = 0b0011;
-        }
+            if (strstr(instruction->disassembled, "ad") || strstr(instruction->disassembled, "au"))
+            {
+                instruction->operation = ADD;
+                instruction->mode = 0b0011;
+            }
 
+            else
+            {
+                instruction->operation = AND;
+                instruction->mode = 0b0011;
+            }
+
+            instruction->useShift = 0;
+            if (strstr(instruction->disassembled, "i"))
+            {
+                instruction->useImmediate = 1;
+                setInmediate(instruction);
+            }
+
+            instruction->useImmediate = 0;
+        }
         else
         {
-            instruction->operation = AND;
-            instruction->mode = 0b0011;
+            instruction->operation = ATOMIC;
         }
-
-        instruction->useShift = 0;
-        if (strstr(instruction->disassembled, "i"))
-        {
-            instruction->useImmediate = 1;
-            setInmediate(instruction);
-        }
-
-        instruction->useImmediate = 0;
 
         break;
 
+    case 'f':
+        instruction->operation = IO;
+        break;
+
     case 's':
-        if (strstr(instruction->disassembled, "sub"))
+        if (!strstr(instruction->disassembled, ".w"))
         {
-            instruction->operation = SUB;
-            instruction->mode = 0b0011;
-            instruction->useShift = 0;
-            instruction->useImmediate = 0;
-        }
-
-        else if (strstr(instruction->disassembled, "se") || strstr(instruction->disassembled, "slt") ||
-                 strstr(instruction->disassembled, "sn") || strstr(instruction->disassembled, "sg"))
-        {
-            instruction->operation = SET;
-            instruction->mode = 0b0011;
-            instruction->useShift = 0;
-            if (strstr(instruction->disassembled, "i"))
+            if (strstr(instruction->disassembled, "sub"))
             {
-                instruction->useImmediate = 1;
-                setInmediate(instruction);
+                instruction->operation = SUB;
+                instruction->mode = 0b0011;
+                instruction->useShift = 0;
+                instruction->useImmediate = 0;
             }
 
-            instruction->useImmediate = 0;
-        }
-
-        else if (strstr(instruction->disassembled, "sr") || strstr(instruction->disassembled, "sll"))
-        {
-            instruction->operation = SHIFT;
-            instruction->mode = 0b0011;
-            instruction->useShift = 1;
-            setShift(instruction);
-            if (strstr(instruction->disassembled, "i"))
+            else if (strstr(instruction->disassembled, "se") || strstr(instruction->disassembled, "slt") ||
+                     strstr(instruction->disassembled, "sn") || strstr(instruction->disassembled, "sg"))
             {
-                instruction->useImmediate = 1;
-                setInmediate(instruction);
+                instruction->operation = SET;
+                instruction->mode = 0b0011;
+                instruction->useShift = 0;
+                if (strstr(instruction->disassembled, "i"))
+                {
+                    instruction->useImmediate = 1;
+                    setInmediate(instruction);
+                }
+
+                instruction->useImmediate = 0;
             }
 
-            instruction->useImmediate = 0;
-        }
+            else if (strstr(instruction->disassembled, "sr") || strstr(instruction->disassembled, "sll"))
+            {
+                instruction->operation = SHIFT;
+                instruction->mode = 0b0011;
+                instruction->useShift = 1;
+                setShift(instruction);
+                if (strstr(instruction->disassembled, "i"))
+                {
+                    instruction->useImmediate = 1;
+                    setInmediate(instruction);
+                }
 
+                instruction->useImmediate = 0;
+            }
+
+            else
+            {
+                instruction->operation = STORE;
+                instruction->mode = 0b1100;
+                instruction->useShift = 0;
+                instruction->useImmediate = 0;
+            }
+        }
         else
         {
-            instruction->operation = STORE;
-            instruction->mode = 0b1100;
-            instruction->useShift = 0;
-            instruction->useImmediate = 0;
+            instruction->operation = ATOMIC;
         }
         break;
     }
 
+    setRegDest(instruction);
     return pushToPGL(instruction);
 }
 
@@ -501,7 +528,6 @@ liberate:
 static void setShift(struct ins32_t *instruction)
 {
     char *pos = strstr(instruction->disassembled, ",");
-    instruction->regToShift[2] = 0;
 
     strncpy(instruction->regToShift, ++pos, 2);
 
@@ -534,4 +560,17 @@ static void setShift(struct ins32_t *instruction)
     {
         instruction->type = SRAI;
     }
+}
+
+static __attribute__((always_inline)) inline void setRegDest(struct ins32_t *instruction)
+{
+    if ((CMP == instruction->operation) || (JMP == instruction->operation) ||
+        (BRK == instruction->operation) || (RET == instruction->operation) ||
+        (ATOMIC == instruction->operation) || (IO == instruction->operation) ||
+        (CALL == instruction->operation) || (NOP == instruction->operation))
+    {
+        return;
+    }
+    char *pos = strstr(instruction->disassembled, "\t");
+    strncpy(instruction->regDest, ++pos, 2);
 }

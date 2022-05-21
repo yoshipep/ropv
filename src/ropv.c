@@ -98,6 +98,5 @@ int main(int argc, char *argv[])
     args.mode = GENERIC_MODE;
     argp_parse(&argp, argc, argv, 0, 0, &args);
 
-    disassemble(args.file);
-    return 0;
+    return disassemble(args.file);
 }
