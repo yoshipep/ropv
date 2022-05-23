@@ -25,8 +25,8 @@
 #include <unistd.h>
 
 #include "datatypes.h"
-#include "errors.h"
 #include "disas.h"
+#include "errors.h"
 #include "gadgets.h"
 
 #define DEFAULT_PERM 0644
@@ -42,6 +42,8 @@ static uint8_t process_elf(char *elfFile);
 
 static uint8_t parseContent(char *assemblyFile);
 
+static __attribute__((always_inline)) inline void removeExtraInfo(struct ins32_t *instruction);
+
 static __attribute__((always_inline)) inline void setRegDest(struct ins32_t *instruction);
 
 static __attribute__((always_inline)) inline bool checkArch(Elf32_Half arch);
@@ -50,21 +52,21 @@ static __attribute__((always_inline)) inline bool getBits(Elf32_Ehdr *header);
 
 static __attribute__((always_inline)) inline uint8_t pushToPGL(struct ins32_t *instruction);
 
-static __attribute__((always_inline)) inline uint8_t pushToPGL(struct ins32_t *instruction)
+static inline uint8_t pushToPGL(struct ins32_t *instruction)
 {
     static uint8_t pos = 0;
     preliminary_gadget_list[pos % 100] = instruction;
     return pos++ % 100;
 }
 
-static __attribute__((always_inline)) inline bool checkArch(Elf32_Half arch)
+static inline bool checkArch(Elf32_Half arch)
 {
     return arch == 243;
 }
 
-static __attribute__((always_inline)) inline bool getBits(Elf32_Ehdr *header)
+static inline bool getBits(Elf32_Ehdr *header)
 {
-    /*If value equals to 2, the binary is from a 64 bits arch*/
+    // If value equals to 2, the binary is from a 64 bits arch
     return (*header).e_ident[EI_CLASS] == 2 ? EBARCH : 0;
 }
 
@@ -194,8 +196,10 @@ static uint8_t parseContent(char *assemblyFile)
     char *line, *address, *pos, *opcode;
     uint8_t nIns, nTabs, last, bytes;
     int32_t baseAddress, endPos;
+    ins32_t *current;
     size_t startPos;
-    uint8_t start = 0, startProcessing = 0;
+    bool start = false;
+    uint8_t startProcessing = 0;
     size_t len = 0;
     ssize_t read = -1;
 
@@ -226,7 +230,7 @@ static uint8_t parseContent(char *assemblyFile)
         if (!start && (':' == line[strlen(line) - 2]) &&
             ((line[0] - '0' >= 0) && (line[0] - '0' <= 9)))
         {
-            start = 1;
+            start = true;
             address = malloc(sizeof(char) * 8);
             address = strncpy(address, line, 8);
             baseAddress = strtol(address, NULL, 0x10);
@@ -242,7 +246,7 @@ static uint8_t parseContent(char *assemblyFile)
             nTabs = 0;
             if ((0xa == line[0]) || strstr(line, "...") || strstr(line, "unimp"))
             {
-                start = 0;
+                start = false;
                 continue;
             }
 
@@ -270,16 +274,21 @@ static uint8_t parseContent(char *assemblyFile)
 
             bytes = 0;
             startPos += 1;
-            ins32_t *current = (ins32_t *)malloc(sizeof(ins32_t));
+            current = (ins32_t *)malloc(sizeof(ins32_t));
             memset(current, 0x0, sizeof(ins32_t));
             current->address = baseAddress + nIns;
             current->disassembled = (char *)malloc(sizeof(char) * (endPos - startPos));
             strncpy(current->disassembled, &line[startPos], endPos - startPos);
             last = fillData(current);
 
+            if ((JMP == current->operation) || (CMP == current->operation))
+            {
+                removeExtraInfo(current);
+            }
+
             if (RET == current->operation)
             {
-                start = 0;
+                start = false;
                 processGadgets(last);
             }
 
@@ -289,6 +298,15 @@ static uint8_t parseContent(char *assemblyFile)
                 bytes++;
             }
 
+            if (2 == bytes)
+            {
+                current->isCompressed = true;
+            }
+
+            else
+            {
+                current->isCompressed = false;
+            }
             nIns += bytes / 2;
         }
 
@@ -307,41 +325,39 @@ uint8_t fillData(struct ins32_t *instruction)
         if (!strstr(instruction->disassembled, ".w"))
         {
             instruction->operation = LOAD;
-            instruction->mode = 0b0011;
-            instruction->useImmediate = 0;
-            instruction->useShift = 0;
         }
+
         else
         {
             instruction->operation = ATOMIC;
         }
+        instruction->useImmediate = false;
         break;
 
     case 'b':
         instruction->operation = CMP;
-        instruction->useImmediate = 0;
-        instruction->useShift = 0;
+        instruction->useImmediate = false;
         break;
 
     case 'j':
     case 't':
         instruction->operation = JMP;
-        instruction->useImmediate = 0;
-        instruction->useShift = 0;
+        instruction->useImmediate = false;
         break;
 
     case 'o':
     case 'x':
         instruction->operation = OR;
-        instruction->mode = 0b0011;
-        instruction->useShift = 0;
         if (strstr(instruction->disassembled, "i"))
         {
-            instruction->useImmediate = 1;
+            instruction->useImmediate = true;
             setInmediate(instruction);
         }
 
-        instruction->useImmediate = 0;
+        else
+        {
+            instruction->useImmediate = false;
+        }
         break;
 
     case 'e':
@@ -354,49 +370,51 @@ uint8_t fillData(struct ins32_t *instruction)
         {
             instruction->operation = BRK;
         }
-
-        instruction->useShift = 0;
-        instruction->useImmediate = 0;
-        instruction->mode = 0;
+        instruction->useImmediate = false;
         break;
 
     case 'r':
-        instruction->operation = RET;
-        instruction->useShift = 0;
-        instruction->useImmediate = 0;
+        if (!strstr(instruction->disassembled, "remu"))
+        {
+            instruction->operation = RET;
+        }
+
+        else
+        {
+            instruction->operation = MUL;
+        }
+        instruction->useImmediate = false;
         break;
 
     case 'n':
         if (strstr(instruction->disassembled, "t"))
         {
             instruction->operation = NOT;
-            instruction->useShift = 0;
-            instruction->useImmediate = 0;
-            instruction->mode = 0b0011;
-            break;
         }
+
         else if (strstr(instruction->disassembled, "g"))
         {
             instruction->operation = NEG;
-            instruction->useShift = 0;
-            instruction->useImmediate = 0;
-            instruction->mode = 0b0011;
-            break;
         }
+
         else
         {
             instruction->operation = NOP;
-            instruction->useShift = 0;
-            instruction->useImmediate = 0;
-            instruction->mode = 0;
-            break;
         }
+        instruction->useImmediate = false;
+        break;
 
     case 'm':
-        instruction->operation = MOV;
-        instruction->mode = 0b0011;
-        instruction->useShift = 0;
-        instruction->useImmediate = 0;
+        if (!strstr(instruction->disassembled, "mul"))
+        {
+            instruction->operation = MOV;
+        }
+
+        else
+        {
+            instruction->operation = MUL;
+        }
+        instruction->useImmediate = false;
         break;
 
     case 'a':
@@ -405,33 +423,35 @@ uint8_t fillData(struct ins32_t *instruction)
             if (strstr(instruction->disassembled, "ad") || strstr(instruction->disassembled, "au"))
             {
                 instruction->operation = ADD;
-                instruction->mode = 0b0011;
             }
 
             else
             {
                 instruction->operation = AND;
-                instruction->mode = 0b0011;
             }
 
-            instruction->useShift = 0;
             if (strstr(instruction->disassembled, "i"))
             {
-                instruction->useImmediate = 1;
+                instruction->useImmediate = true;
                 setInmediate(instruction);
             }
 
-            instruction->useImmediate = 0;
+            else
+            {
+                instruction->useImmediate = false;
+            }
         }
+
         else
         {
             instruction->operation = ATOMIC;
+            instruction->useImmediate = false;
         }
-
         break;
 
     case 'f':
         instruction->operation = IO;
+        instruction->useImmediate = false;
         break;
 
     case 's':
@@ -440,53 +460,57 @@ uint8_t fillData(struct ins32_t *instruction)
             if (strstr(instruction->disassembled, "sub"))
             {
                 instruction->operation = SUB;
-                instruction->mode = 0b0011;
-                instruction->useShift = 0;
-                instruction->useImmediate = 0;
+                instruction->useImmediate = false;
             }
 
             else if (strstr(instruction->disassembled, "se") || strstr(instruction->disassembled, "slt") ||
                      strstr(instruction->disassembled, "sn") || strstr(instruction->disassembled, "sg"))
             {
                 instruction->operation = SET;
-                instruction->mode = 0b0011;
-                instruction->useShift = 0;
                 if (strstr(instruction->disassembled, "i"))
                 {
-                    instruction->useImmediate = 1;
+                    instruction->useImmediate = true;
                     setInmediate(instruction);
                 }
 
-                instruction->useImmediate = 0;
+                else
+                {
+                    instruction->useImmediate = false;
+                }
             }
 
             else if (strstr(instruction->disassembled, "sr") || strstr(instruction->disassembled, "sll"))
             {
                 instruction->operation = SHIFT;
-                instruction->mode = 0b0011;
-                instruction->useShift = 1;
-                setShift(instruction);
                 if (strstr(instruction->disassembled, "i"))
                 {
-                    instruction->useImmediate = 1;
+                    instruction->useImmediate = true;
                     setInmediate(instruction);
                 }
 
-                instruction->useImmediate = 0;
+                else
+                {
+                    instruction->useImmediate = false;
+                }
             }
 
             else
             {
                 instruction->operation = STORE;
-                instruction->mode = 0b1100;
-                instruction->useShift = 0;
-                instruction->useImmediate = 0;
+                instruction->useImmediate = false;
             }
         }
+
         else
         {
             instruction->operation = ATOMIC;
+            instruction->useImmediate = false;
         }
+        break;
+
+    case 'd':
+        instruction->operation = DIV;
+        instruction->useImmediate = false;
         break;
     }
 
@@ -525,52 +549,24 @@ liberate:
     dummy = NULL;
 }
 
-static void setShift(struct ins32_t *instruction)
+static inline void setRegDest(struct ins32_t *instruction)
 {
-    char *pos = strstr(instruction->disassembled, ",");
-
-    strncpy(instruction->regToShift, ++pos, 2);
-
-    if (strstr(instruction->disassembled, "srli"))
-    {
-        instruction->type = SRLI;
-    }
-
-    else if (strstr(instruction->disassembled, "slli"))
-    {
-        instruction->type = SLLI;
-    }
-
-    else if (strstr(instruction->disassembled, "sll"))
-    {
-        instruction->type = SLL;
-    }
-
-    else if (strstr(instruction->disassembled, "srl"))
-    {
-        instruction->type = SRL;
-    }
-
-    else if (strstr(instruction->disassembled, "sra"))
-    {
-        instruction->type = SRA;
-    }
-
-    else
-    {
-        instruction->type = SRAI;
-    }
-}
-
-static __attribute__((always_inline)) inline void setRegDest(struct ins32_t *instruction)
-{
-    if ((CMP == instruction->operation) || (JMP == instruction->operation) ||
-        (BRK == instruction->operation) || (RET == instruction->operation) ||
-        (ATOMIC == instruction->operation) || (IO == instruction->operation) ||
-        (CALL == instruction->operation) || (NOP == instruction->operation))
+    if ((CMP == instruction->operation) || (BRK == instruction->operation) ||
+        (RET == instruction->operation) || (ATOMIC == instruction->operation) ||
+        (IO == instruction->operation) || (CALL == instruction->operation) ||
+        (NOP == instruction->operation))
     {
         return;
     }
     char *pos = strstr(instruction->disassembled, "\t");
     strncpy(instruction->regDest, ++pos, 2);
+}
+
+static inline void removeExtraInfo(struct ins32_t *instruction)
+{
+    char *extra = strstr(instruction->disassembled, "<");
+    if (extra)
+    {
+        extra[0] = 0x0;
+    }
 }

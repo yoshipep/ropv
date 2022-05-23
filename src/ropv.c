@@ -26,6 +26,7 @@
 static struct argp_option options[] = {
     {"all", 'a', 0, 0, "Show all gadgets. Option selected by default"},
     {"interest", 'i', 0, 0, "Show most interesting gadgets"},
+    {"jop", 'j', 0, 0, "Enable JOP gadgets"},
     {0}};
 
 struct arguments args;
@@ -67,6 +68,10 @@ static error_t parse_opt(int key, char *arg, struct argp_state *state)
         }
         break;
 
+    case 'j':
+        arguments->options = 1;
+        break;
+
     case ARGP_KEY_ARG:
         if (state->arg_num >= 1)
         {
@@ -95,8 +100,8 @@ static struct argp argp = {options, parse_opt, args_doc, doc, 0, 0, 0};
 
 int main(int argc, char *argv[])
 {
+    memset(&args, 0x0, sizeof(struct arguments));
     args.mode = GENERIC_MODE;
     argp_parse(&argp, argc, argv, 0, 0, &args);
-
     return disassemble(args.file);
 }

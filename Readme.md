@@ -15,6 +15,7 @@ To build the program simply run the following command:
 
         -a, --all                  Show all gadgets. Option selected by default
         -i, --interest             Show most interesting gadgets
+        -j, --jop                  Enable JOP gadgets
         -?, --help                 Give this help list
         --usage                    Give a short usage message
         -V, --version              Print program version

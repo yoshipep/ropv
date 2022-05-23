@@ -39,19 +39,28 @@ static __attribute__((always_inline)) inline uint8_t checkValidity(ins32_t *inst
 
 static __attribute__((always_inline)) inline uint8_t messSp(ins32_t *instruction);
 
-static __attribute__((always_inline)) inline uint8_t checkValidity(ins32_t *instruction)
+static inline uint8_t checkValidity(ins32_t *instruction)
 {
+    if (args.options)
+    {
+        return (CMP != instruction->operation) &&
+               (BRK != instruction->operation) && (RET != instruction->operation) &&
+               (ATOMIC != instruction->operation) && (IO != instruction->operation) &&
+               !strstr(instruction->disassembled, "auipc") && !messSp(instruction);
+    }
     return (CMP != instruction->operation) && (JMP != instruction->operation) &&
            (BRK != instruction->operation) && (RET != instruction->operation) &&
            (ATOMIC != instruction->operation) && (IO != instruction->operation) &&
            !strstr(instruction->disassembled, "auipc") && !messSp(instruction);
 }
 
-static __attribute__((always_inline)) inline uint8_t messSp(ins32_t *instruction)
+static inline uint8_t messSp(ins32_t *instruction)
 {
-    return (ADD == instruction->operation && instruction->useImmediate && instruction->immediate < 0 &&
+    return (ADD == instruction->operation && instruction->useImmediate &&
+            instruction->immediate < 0 &&
             strstr(instruction->disassembled, "addi\tsp")) ||
-           (SUB == instruction->operation && strstr(instruction->disassembled, "sub\tsp"));
+           (SUB == instruction->operation &&
+            strstr(instruction->disassembled, "sub\tsp"));
 }
 
 static void basicFilter(uint8_t lastElement, gadget_t *gadget)
@@ -68,6 +77,7 @@ static void basicFilter(uint8_t lastElement, gadget_t *gadget)
         {
             current = 99;
         }
+
         else
         {
             current--;
@@ -79,6 +89,30 @@ static void basicFilter(uint8_t lastElement, gadget_t *gadget)
 
 static void advancedFilter(gadget_t *gadget)
 {
+    int8_t i = gadget->length - 1;
+
+    for (; i >= 0; i--)
+    {
+        if (('a' == gadget->instructions[i]->regDest[0]) &&
+            ('6' != gadget->instructions[i]->regDest[1]))
+        {
+            return;
+        }
+
+        else
+        {
+            gadget->length -= 1;
+            if (gadget->instructions[i]->isCompressed)
+            {
+                gadget->instructions[i]->address += 2;
+            }
+
+            else
+            {
+                gadget->instructions[i]->address += 4;
+            }
+        }
+    }
 }
 
 void processGadgets(uint8_t lastElement)
@@ -86,18 +120,13 @@ void processGadgets(uint8_t lastElement)
 
     gadget_t *gadget = (gadget_t *)malloc(sizeof(gadget_t));
 
-    switch (args.mode)
+    basicFilter(lastElement, gadget);
+
+    if (INTEREST_MODE == args.mode)
     {
-    case GENERIC_MODE:
-        basicFilter(lastElement, gadget);
-        break;
-    case INTEREST_MODE:
-        basicFilter(lastElement, gadget);
         advancedFilter(gadget);
-        break;
-    default:
-        break;
     }
+
     printGadget(gadget);
     free(gadget);
     gadget = NULL;
@@ -110,6 +139,7 @@ static char *trim(char *str)
     {
         str++;
     }
+
     if (0 == *str)
     {
         return str;
@@ -120,7 +150,7 @@ static char *trim(char *str)
         aux--;
     }
 
-    aux[1] = '\0';
+    aux[1] = 0x0;
 
     return str;
 }
@@ -140,6 +170,7 @@ static char *prettifyString(char *src)
             trimmed++;
             continue;
         }
+
         if (',' == last)
         {
             buf[i++] = 0x20; // Space
@@ -148,7 +179,7 @@ static char *prettifyString(char *src)
         last = *trimmed;
         trimmed++;
     }
-    buf[i] = 0;
+    buf[i] = 0x0;
     length = strlen(buf) + 1;
     res = (char *)malloc(length * sizeof(char));
     strncpy(res, buf, length);
@@ -158,23 +189,28 @@ static char *prettifyString(char *src)
 
 static void printGadget(gadget_t *gadget)
 {
-    int8_t i;
-
-    for (i = gadget->length - 1; i >= 0; i--)
+    if (gadget->length > 0)
     {
-        char *prettified = prettifyString(gadget->instructions[i]->disassembled);
-        if (gadget->length - 1 == i)
+        int8_t i;
+
+        for (i = gadget->length - 1; i >= 0; i--)
         {
-            printf("%#010x:%c", gadget->instructions[i]->address, 0x20);
+            char *prettified = prettifyString(gadget->instructions[i]->disassembled);
+            if (gadget->length - 1 == i)
+            {
+                printf("%#010x:%c", gadget->instructions[i]->address, 0x20);
+            }
+
+            if (0 == i)
+            {
+                printf("%s;", prettified);
+            }
+
+            else
+            {
+                printf("%s;%c", prettified, 0x20);
+            }
         }
-        if (0 == i)
-        {
-            printf("%s;", prettified);
-        }
-        else
-        {
-            printf("%s;%c", prettified, 0x20);
-        }
+        putchar(0x0a); // Newline
     }
-    putchar(0x0a); // Newline
 }

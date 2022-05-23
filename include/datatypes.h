@@ -52,36 +52,27 @@ typedef enum
     NEG,
     RET,
     ATOMIC,
-    IO
+    IO,
+    MUL,
+    DIV
 } op_t;
-
-typedef enum
-{
-    SRLI,
-    SLLI,
-    SLL,
-    SRL,
-    SRA,
-    SRAI
-} shift_t;
 
 struct arguments
 {
     char *file;
     program_mode_t mode;
     uint8_t arg_num;
+    uint8_t options;
 };
 
 typedef struct ins32_t
 {
     addr32_t address;
     int16_t immediate;
-    uint8_t mode;
-    uint8_t useImmediate;
-    shift_t type;
+    bool useImmediate;
+    bool isCompressed;
     op_t operation;
     char *disassembled;
-    uint8_t useShift;
     char regToShift[3];
     char regDest[3];
 } ins32_t;
