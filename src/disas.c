@@ -27,7 +27,8 @@
 #include "datatypes.h"
 #include "disas.h"
 #include "errors.h"
-#include "gadgets.h"
+#include "gadget.h"
+#include "node.h"
 
 #define DEFAULT_PERM 0644
 #define DUMMY_FILE "/tmp/disas.s"
@@ -35,8 +36,6 @@
 ins32_t *preliminary_gadget_list[100];
 
 static void setInmediate(struct ins32_t *instruction);
-
-static void setShift(struct ins32_t *instruction);
 
 static uint8_t process_elf(char *elfFile);
 
@@ -211,7 +210,7 @@ static uint8_t parseContent(char *assemblyFile)
         return EOPEN;
     }
     // unlink(assemblyFile);
-
+    list = create();
     do
     {
         read = getline(&line, &len, file) != -1;
@@ -311,6 +310,8 @@ static uint8_t parseContent(char *assemblyFile)
         }
 
     } while (read);
+
+    printContent(list);
 
     return 0;
 }

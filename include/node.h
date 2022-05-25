@@ -16,17 +16,29 @@
  *  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
-#ifndef _DISAS_H
-#define _DISAS_H 1
+#ifndef _NODE_H
+#define _NODE_H 1
 
-#include "datatypes.h"
+#include <stdbool.h>
+#include <stddef.h>
+#include <stdlib.h>
+#include <string.h>
 
-struct ins32_t *preliminary_gadget_list[100];
+#include "gadget.h"
 
-struct node_t *list;
+typedef struct node_t
+{
+    const char *key;
+    struct gadget_t *data;
+    struct node_t *next;
+} node_t;
 
-uint8_t disassemble(char *elfFile);
+struct node_t *create();
 
-uint8_t fillData(struct ins32_t *instruction);
+struct node_t *insert(struct node_t *list, struct gadget_t *data, const char *key);
+
+bool find(struct node_t *list, const char *key);
+
+void printContent(struct node_t *list);
 
 #endif

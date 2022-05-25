@@ -19,8 +19,6 @@
 #ifndef _DATATYPES_H
 #define _DATATYPES_H 1
 
-#define MAX_LENGTH 5
-
 #include <stdbool.h>
 #include <stdint.h>
 
@@ -76,11 +74,5 @@ typedef struct ins32_t
     char regToShift[3];
     char regDest[3];
 } ins32_t;
-
-typedef struct gadget_t
-{
-    ins32_t *instructions[MAX_LENGTH];
-    uint8_t length;
-} gadget_t;
 
 #endif

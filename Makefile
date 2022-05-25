@@ -1,11 +1,11 @@
 CC=gcc
-CFLAGS=-O2 -fPIE -Wl,-pie -D_FORTIFY_SOURCE=2 -fstack-protector# TODO: Comprobar la necesidad de los dos ultimos flags
+CFLAGS=-O2 -fPIE -pie -D_FORTIFY_SOURCE=2 -fstack-protector
 INCLUDE=-I ./include
 RELDIR=release
 DBG=0
 DBGDIR=debug
 DBGCFLAGS=-Wall -O0 -ggdb
-SOURCES=./src/ropv.c ./src/disas.c ./src/gadgets.c
+SOURCES=./src/ropv.c ./src/disas.c ./src/gadget.c ./src/node.c
 OBJS=$(SOURCES:.c=.o)
 
 #$@ = Target de esa regla, en el primer caso es main

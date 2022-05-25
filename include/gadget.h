@@ -16,15 +16,30 @@
  *  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
-#ifndef _GADGETS_H
-#define _GADGETS_H 1
+#ifndef _GADGET_H
+#define _GADGET_H 1
+
+#define MAX_LENGTH 5
 
 #include <stdint.h>
 
-void processGadgets(uint8_t lastElement);
+#include "datatypes.h"
+#include "node.h"
+
+typedef struct gadget_t
+{
+    ins32_t *instructions[MAX_LENGTH];
+    uint8_t length;
+} gadget_t;
 
 extern struct arguments args;
 
 extern ins32_t *preliminary_gadget_list[100];
+
+extern struct node_t *list;
+
+void processGadgets(uint8_t lastElement);
+
+void printGadget(struct gadget_t *gadget);
 
 #endif

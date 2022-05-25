@@ -23,17 +23,19 @@
 #include <unistd.h>
 
 #include "datatypes.h"
-#include "gadgets.h"
+#include "gadget.h"
 
-static void printGadget(gadget_t *gadget);
+static struct node_t *last = NULL;
+
+void printGadget(struct gadget_t *gadget);
 
 static char *prettifyString(char *src);
 
 static char *trim(char *str);
 
-static void basicFilter(uint8_t lastElement, gadget_t *gadget);
+static void basicFilter(uint8_t lastElement, struct gadget_t *gadget);
 
-static void advancedFilter(gadget_t *gadget);
+static void advancedFilter(struct gadget_t *gadget);
 
 static __attribute__((always_inline)) inline uint8_t checkValidity(ins32_t *instruction);
 
@@ -87,7 +89,7 @@ static void basicFilter(uint8_t lastElement, gadget_t *gadget)
     }
 }
 
-static void advancedFilter(gadget_t *gadget)
+static void advancedFilter(struct gadget_t *gadget)
 {
     int8_t i = gadget->length - 1;
 
@@ -118,7 +120,12 @@ static void advancedFilter(gadget_t *gadget)
 void processGadgets(uint8_t lastElement)
 {
 
-    gadget_t *gadget = (gadget_t *)malloc(sizeof(gadget_t));
+    char buf[150];
+    char *prettified;
+    int8_t i;
+    size_t length;
+    uint8_t index = 0;
+    struct gadget_t *gadget = (gadget_t *)malloc(sizeof(struct gadget_t));
 
     basicFilter(lastElement, gadget);
 
@@ -126,10 +133,27 @@ void processGadgets(uint8_t lastElement)
     {
         advancedFilter(gadget);
     }
+    memset(buf, 0x0, sizeof(char) * 150);
 
-    printGadget(gadget);
-    free(gadget);
-    gadget = NULL;
+    for (i = gadget->length - 1; i >= 0; i--)
+    {
+        prettified = prettifyString(gadget->instructions[i]->disassembled);
+        length = strlen(prettified);
+        strncpy(&buf[index], prettified, length);
+        index += length;
+    }
+
+    if (NULL == last)
+    {
+        last = list;
+    }
+
+    if (!find(list, buf))
+    {
+        last = insert(last, gadget, buf);
+    }
+
+    // printGadget(gadget);
 }
 
 static char *trim(char *str)
@@ -187,7 +211,7 @@ static char *prettifyString(char *src)
     return res;
 }
 
-static void printGadget(gadget_t *gadget)
+void printGadget(struct gadget_t *gadget)
 {
     if (gadget->length > 0)
     {
