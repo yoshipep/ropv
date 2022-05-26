@@ -198,7 +198,7 @@ static uint8_t parseContent(char *assemblyFile)
     ins32_t *current;
     size_t startPos;
     bool start = false, isEnd = false;
-    uint8_t startProcessing = 0;
+    uint8_t startProcessing = 0, insProcessed = 0;
     size_t len = 0;
     ssize_t read = -1;
 
@@ -217,6 +217,11 @@ static uint8_t parseContent(char *assemblyFile)
         if (!read)
         {
             break;
+        }
+
+        if (strstr(line, "00015f50 <gnu_get_libc_release>:"))
+        {
+            puts("");
         }
 
         // Program process from .text section
@@ -244,6 +249,7 @@ static uint8_t parseContent(char *assemblyFile)
             free(address);
             address = NULL;
             nIns = 0;
+            insProcessed = 0;
             continue;
         }
 
@@ -288,6 +294,11 @@ static uint8_t parseContent(char *assemblyFile)
             strncpy(current->disassembled, &line[startPos], endPos - startPos);
             last = fillData(current);
 
+            if (insProcessed < MAX_LENGTH)
+            {
+                insProcessed += 1;
+            }
+
             if ((JMP == current->operation) || (CMP == current->operation))
             {
                 removeExtraInfo(current);
@@ -297,13 +308,13 @@ static uint8_t parseContent(char *assemblyFile)
                 strstr(current->disassembled, "jr"))
             {
                 // TODO: Implementar
-                processJopGadgets(last);
+                processJopGadgets(last, insProcessed);
             }
 
             if (RET == current->operation)
             {
                 start = false;
-                processGadgets(last);
+                processGadgets(last, insProcessed);
                 isEnd = true;
             }
 
@@ -313,7 +324,7 @@ static uint8_t parseContent(char *assemblyFile)
                 bytes++;
             }
 
-            if (2 == bytes)
+            if (4 == bytes)
             {
                 current->isCompressed = true;
             }

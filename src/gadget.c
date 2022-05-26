@@ -33,7 +33,7 @@ static char *prettifyString(char *src);
 
 static char *trim(char *str);
 
-static void basicFilter(uint8_t lastElement, struct gadget_t *gadget);
+static void basicFilter(uint8_t lastElement, uint8_t insProcessed, gadget_t *gadget);
 
 static void advancedFilter(struct gadget_t *gadget);
 
@@ -63,13 +63,13 @@ static inline bool messSp(struct ins32_t *instruction)
             strstr(instruction->disassembled, "sub\tsp"));
 }
 
-static void basicFilter(uint8_t lastElement, gadget_t *gadget)
+static void basicFilter(uint8_t lastElement, uint8_t insProcessed, gadget_t *gadget)
 {
     uint8_t current;
     gadget->instructions[0] = preliminary_gadget_list[lastElement];
     gadget->length = 1;
     current = 0 == lastElement ? 99 : lastElement - gadget->length;
-    while (gadget->length < MAX_LENGTH && checkValidity(preliminary_gadget_list[current]))
+    while (gadget->length < insProcessed && checkValidity(preliminary_gadget_list[current]))
     {
         gadget->instructions[gadget->length] = preliminary_gadget_list[current];
         gadget->length++;
@@ -137,12 +137,12 @@ static void jopFilter(struct gadget_t *gadget)
     }
 }
 
-void processGadgets(uint8_t lastElement)
+void processGadgets(uint8_t lastElement, uint8_t insProcessed)
 {
     char *key;
     struct gadget_t *gadget = (gadget_t *)malloc(sizeof(struct gadget_t));
 
-    basicFilter(lastElement, gadget);
+    basicFilter(lastElement, insProcessed, gadget);
 
     if (args.options)
     {
@@ -166,12 +166,12 @@ void processGadgets(uint8_t lastElement)
     }
 }
 
-void processJopGadgets(uint8_t lastElement)
+void processJopGadgets(uint8_t lastElement, uint8_t insProcessed)
 {
     char *key;
     struct gadget_t *gadget = (gadget_t *)malloc(sizeof(struct gadget_t));
 
-    basicFilter(lastElement, gadget);
+    basicFilter(lastElement, insProcessed, gadget);
     jopFilter(gadget);
 
     if (NULL != gadget)

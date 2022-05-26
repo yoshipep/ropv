@@ -38,9 +38,9 @@ extern ins32_t *preliminary_gadget_list[100];
 
 extern struct node_t *list;
 
-void processGadgets(uint8_t lastElement);
+void processGadgets(uint8_t lastElement, uint8_t insProcessed);
 
-void processJopGadgets(uint8_t lastElement);
+void processJopGadgets(uint8_t lastElement, uint8_t insProcessed);
 
 void printGadget(struct gadget_t *gadget);
 
