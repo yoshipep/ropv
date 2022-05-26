@@ -197,7 +197,7 @@ static uint8_t parseContent(char *assemblyFile)
     int32_t baseAddress, endPos;
     ins32_t *current;
     size_t startPos;
-    bool start = false;
+    bool start = false, isEnd = false;
     uint8_t startProcessing = 0;
     size_t len = 0;
     ssize_t read = -1;
@@ -219,11 +219,19 @@ static uint8_t parseContent(char *assemblyFile)
             break;
         }
 
+        // Program process from .text section
         if (!strstr(line, ".text:") && !startProcessing)
         {
             continue;
         }
         startProcessing = 1;
+
+        // Ensures ret is not the last instruction
+        if (isEnd && !strstr(line, "\n"))
+        {
+            start = true;
+            isEnd = false;
+        }
 
         // Check if the line is the start of a function
         if (!start && (':' == line[strlen(line) - 2]) &&
@@ -285,10 +293,18 @@ static uint8_t parseContent(char *assemblyFile)
                 removeExtraInfo(current);
             }
 
+            if (args.options && (JMP == current->operation) &&
+                strstr(current->disassembled, "jr"))
+            {
+                // TODO: Implementar
+                processJopGadgets(last);
+            }
+
             if (RET == current->operation)
             {
                 start = false;
                 processGadgets(last);
+                isEnd = true;
             }
 
             opcode = strstr(line, "\t") + 1;
@@ -342,7 +358,16 @@ uint8_t fillData(struct ins32_t *instruction)
 
     case 'j':
     case 't':
-        instruction->operation = JMP;
+        if (strstr(instruction->disassembled, "jal"))
+        {
+            instruction->operation = CALL;
+        }
+
+        else
+        {
+            instruction->operation = JMP;
+        }
+
         instruction->useImmediate = false;
         break;
 
@@ -364,7 +389,7 @@ uint8_t fillData(struct ins32_t *instruction)
     case 'e':
         if (strstr(instruction->disassembled, "ecall"))
         {
-            instruction->operation = CALL;
+            instruction->operation = SYSCALL;
         }
 
         else
@@ -513,6 +538,10 @@ uint8_t fillData(struct ins32_t *instruction)
         instruction->operation = DIV;
         instruction->useImmediate = false;
         break;
+
+    default:
+        instruction->operation = UNSUPORTED;
+        break;
     }
 
     setRegDest(instruction);
@@ -554,8 +583,9 @@ static inline void setRegDest(struct ins32_t *instruction)
 {
     if ((CMP == instruction->operation) || (BRK == instruction->operation) ||
         (RET == instruction->operation) || (ATOMIC == instruction->operation) ||
-        (IO == instruction->operation) || (CALL == instruction->operation) ||
-        (NOP == instruction->operation))
+        (IO == instruction->operation) || (SYSCALL == instruction->operation) ||
+        (NOP == instruction->operation) ||
+        (UNSUPORTED == instruction->operation))
     {
         return;
     }

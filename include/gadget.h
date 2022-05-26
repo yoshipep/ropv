@@ -40,6 +40,8 @@ extern struct node_t *list;
 
 void processGadgets(uint8_t lastElement);
 
+void processJopGadgets(uint8_t lastElement);
+
 void printGadget(struct gadget_t *gadget);
 
 #endif

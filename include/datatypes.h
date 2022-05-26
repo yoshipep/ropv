@@ -45,6 +45,7 @@ typedef enum
     NOP,
     MOV,
     CALL,
+    SYSCALL,
     BRK,
     NOT,
     NEG,
@@ -52,7 +53,8 @@ typedef enum
     ATOMIC,
     IO,
     MUL,
-    DIV
+    DIV,
+    UNSUPORTED
 } op_t;
 
 struct arguments
