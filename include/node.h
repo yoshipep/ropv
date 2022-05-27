@@ -37,6 +37,8 @@ struct node_t *create();
 
 struct node_t *insert(struct node_t *list, struct gadget_t *data, const char *key);
 
+// struct node_t *remove(struct node_t *list, const char *key);
+
 bool find(struct node_t *list, const char *key);
 
 void printContent(struct node_t *list);

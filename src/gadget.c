@@ -31,25 +31,24 @@ void printGadget(struct gadget_t *gadget);
 
 static char *prettifyString(char *src);
 
-static char *trim(char *str);
-
-static void basicFilter(uint8_t lastElement, uint8_t insProcessed, gadget_t *gadget);
+static void basicFilter(uint8_t lastElement, uint8_t insProcessed, struct gadget_t *gadget);
 
 static void advancedFilter(struct gadget_t *gadget);
 
-static void jopFilter(struct gadget_t *gadget);
+static struct gadget_t *jopFilter(struct gadget_t *gadget);
 
 static char *generateKey(struct gadget_t *gadget);
 
-static inline bool checkValidity(struct ins32_t *instruction);
+static bool checkValidity(struct ins32_t *instruction);
 
 static inline bool messSp(struct ins32_t *instruction);
 
-static inline bool checkValidity(struct ins32_t *instruction)
+static bool checkValidity(struct ins32_t *instruction)
 {
     return (CMP != instruction->operation) && (JMP != instruction->operation) &&
            (BRK != instruction->operation) && (RET != instruction->operation) &&
            (CALL != instruction->operation) &&
+           (UNSUPORTED != instruction->operation) &&
            (ATOMIC != instruction->operation) && (IO != instruction->operation) &&
            !strstr(instruction->disassembled, "auipc") && !messSp(instruction);
 }
@@ -63,9 +62,10 @@ static inline bool messSp(struct ins32_t *instruction)
             strstr(instruction->disassembled, "sub\tsp"));
 }
 
-static void basicFilter(uint8_t lastElement, uint8_t insProcessed, gadget_t *gadget)
+static void basicFilter(uint8_t lastElement, uint8_t insProcessed, struct gadget_t *gadget)
 {
     uint8_t current;
+
     gadget->instructions[0] = preliminary_gadget_list[lastElement];
     gadget->length = 1;
     current = 0 == lastElement ? 99 : lastElement - gadget->length;
@@ -115,13 +115,13 @@ static void advancedFilter(struct gadget_t *gadget)
     }
 }
 
-static void jopFilter(struct gadget_t *gadget)
+static struct gadget_t *jopFilter(struct gadget_t *gadget)
 {
-    // TODO: Implementar
-    uint8_t nCoindicendes = 0;
     int8_t i;
     char *refRegister;
+    uint8_t nCoindicendes = 0;
     refRegister = gadget->instructions[0]->regDest;
+
     for (i = gadget->length - 1; i >= 1; i--)
     {
         if (0 == strcmp(refRegister, gadget->instructions[i]->regDest))
@@ -130,51 +130,40 @@ static void jopFilter(struct gadget_t *gadget)
         }
     }
 
-    if (nCoindicendes)
+    if (nCoindicendes >= (gadget->length / 2))
     {
         free(gadget);
-        gadget = NULL;
+        return NULL;
     }
+    return gadget;
 }
 
-void processGadgets(uint8_t lastElement, uint8_t insProcessed)
+void processGadgets(uint8_t lastElement, uint8_t insProcessed, op_t lastOperation)
 {
     char *key;
     struct gadget_t *gadget = (gadget_t *)malloc(sizeof(struct gadget_t));
 
     basicFilter(lastElement, insProcessed, gadget);
 
-    if (args.options)
+    switch (lastOperation)
     {
-        jopFilter(gadget);
+    case RET:
+
+        if (INTEREST_MODE == args.mode)
+        {
+            advancedFilter(gadget);
+        }
+        break;
+
+    case JMP:
+        gadget = jopFilter(gadget);
+        break;
+
+    default:
+        break;
     }
 
-    if (INTEREST_MODE == args.mode)
-    {
-        advancedFilter(gadget);
-    }
-    key = generateKey(gadget);
-
-    if (NULL == last)
-    {
-        last = list;
-    }
-
-    if (!find(list, key))
-    {
-        last = insert(last, gadget, key);
-    }
-}
-
-void processJopGadgets(uint8_t lastElement, uint8_t insProcessed)
-{
-    char *key;
-    struct gadget_t *gadget = (gadget_t *)malloc(sizeof(struct gadget_t));
-
-    basicFilter(lastElement, insProcessed, gadget);
-    jopFilter(gadget);
-
-    if (NULL != gadget)
+    if ((NULL != gadget) || (NULL != gadget && gadget->length > 0))
     {
         key = generateKey(gadget);
 
@@ -187,6 +176,7 @@ void processJopGadgets(uint8_t lastElement, uint8_t insProcessed)
         {
             last = insert(last, gadget, key);
         }
+        free(key);
     }
 }
 
@@ -194,9 +184,10 @@ static char *generateKey(struct gadget_t *gadget)
 {
     int8_t i;
     size_t length;
-    uint8_t index = 0;
     char *prettified;
+    uint8_t index = 0;
     char *buf = (char *)calloc(150, sizeof(char));
+
     for (i = gadget->length - 1; i >= 0; i--)
     {
         prettified = prettifyString(gadget->instructions[i]->disassembled);
@@ -207,42 +198,18 @@ static char *generateKey(struct gadget_t *gadget)
     return buf;
 }
 
-static char *trim(char *str)
-{
-    char *aux;
-    while (isspace((unsigned char)*str))
-    {
-        str++;
-    }
-
-    if (0 == *str)
-    {
-        return str;
-    }
-    aux = str + strlen(str) - 1;
-    while (aux > str && isspace((unsigned char)*aux))
-    {
-        aux--;
-    }
-
-    aux[1] = 0x0;
-
-    return str;
-}
-
 static char *prettifyString(char *src)
 {
     char last, *res, buf[50];
     uint8_t length;
     uint8_t i = 0;
 
-    char *trimmed = trim(src);
-    while (*trimmed)
+    while (*src)
     {
-        if (0x20 == *trimmed && 0x20 == last)
+        if (0x20 == *src && 0x20 == last)
         {
-            last = *trimmed;
-            trimmed++;
+            last = *src;
+            src++;
             continue;
         }
 
@@ -250,9 +217,9 @@ static char *prettifyString(char *src)
         {
             buf[i++] = 0x20; // Space
         }
-        buf[i++] = 0x9 == *trimmed ? ' ' : *trimmed; // Tab
-        last = *trimmed;
-        trimmed++;
+        buf[i++] = 0x9 == *src ? ' ' : *src; // Tab
+        last = *src;
+        src++;
     }
     buf[i] = 0x0;
     length = strlen(buf) + 1;

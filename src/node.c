@@ -34,6 +34,11 @@ struct node_t *insert(struct node_t *list, struct gadget_t *data, const char *ke
 
 bool find(struct node_t *list, const char *key)
 {
+    if (NULL == list)
+    {
+        return false;
+    }
+
     struct node_t *head = list;
     while (NULL != head->data)
     {
@@ -48,6 +53,10 @@ bool find(struct node_t *list, const char *key)
 
 void printContent(struct node_t *list)
 {
+    if (NULL == list)
+    {
+        return;
+    }
     struct node_t *head = list;
     while (NULL != head->data)
     {
@@ -55,3 +64,10 @@ void printContent(struct node_t *list)
         head = head->next;
     }
 }
+
+/*struct node_t *remove(struct node_t *list, const char *key)
+{
+    // TODO: Implementar
+    struct node_t *first = list, *aux = list;
+    return NULL;
+}*/

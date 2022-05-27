@@ -33,8 +33,6 @@
 #define DEFAULT_PERM 0644
 #define DUMMY_FILE "/tmp/disas.s"
 
-ins32_t *preliminary_gadget_list[100];
-
 static void setInmediate(struct ins32_t *instruction);
 
 static uint8_t process_elf(char *elfFile);
@@ -219,11 +217,6 @@ static uint8_t parseContent(char *assemblyFile)
             break;
         }
 
-        if (strstr(line, "00015f50 <gnu_get_libc_release>:"))
-        {
-            puts("");
-        }
-
         // Program process from .text section
         if (!strstr(line, ".text:") && !startProcessing)
         {
@@ -236,6 +229,14 @@ static uint8_t parseContent(char *assemblyFile)
         {
             start = true;
             isEnd = false;
+        }
+
+        // Check if has reached the end of a function
+        if (isEnd && strstr(line, "\n"))
+        {
+            isEnd = false;
+            start = false;
+            continue;
         }
 
         // Check if the line is the start of a function
@@ -299,7 +300,7 @@ static uint8_t parseContent(char *assemblyFile)
                 insProcessed += 1;
             }
 
-            if ((JMP == current->operation) || (CMP == current->operation))
+            if (JMP == current->operation)
             {
                 removeExtraInfo(current);
             }
@@ -307,14 +308,22 @@ static uint8_t parseContent(char *assemblyFile)
             if (args.options && (JMP == current->operation) &&
                 strstr(current->disassembled, "jr"))
             {
-                // TODO: Implementar
-                processJopGadgets(last, insProcessed);
+                processGadgets(last, insProcessed, current->operation);
+                start = false;
+                isEnd = true;
+            }
+
+            if (SYSCALL == current->operation)
+            {
+                processGadgets(last, insProcessed, current->operation);
+                start = false;
+                isEnd = true;
             }
 
             if (RET == current->operation)
             {
+                processGadgets(last, insProcessed, current->operation);
                 start = false;
-                processGadgets(last, insProcessed);
                 isEnd = true;
             }
 
@@ -607,6 +616,7 @@ static inline void setRegDest(struct ins32_t *instruction)
 static inline void removeExtraInfo(struct ins32_t *instruction)
 {
     char *extra = strstr(instruction->disassembled, "<");
+
     if (extra)
     {
         extra[0] = 0x0;

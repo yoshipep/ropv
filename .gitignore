@@ -1,8 +1,6 @@
 .vscode/*
 .vscode
 src/*.o
-ropv
-ins_grouped
 files/*
 files
 debug/*
