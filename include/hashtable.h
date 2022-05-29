@@ -16,29 +16,44 @@
  *  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
-#ifndef _NODE_H
-#define _NODE_H 1
+#ifndef _HASHTABLE_H
+#define _HASHTABLE_H 1
 
 #include <stdbool.h>
 #include <stddef.h>
+#include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
 
-#include "gadget.h"
-
-typedef struct node_t
+typedef union result
 {
-	const char *key;
-	struct gadget_t *data;
-	struct node_t *next;
-} node_t;
+    bool boolean;
+    void *null;
+} result;
+typedef struct _entry_t
+{
+    const char *key;
+    int *data;
+    struct _entry_t *next;
+} _entry_t;
 
-struct node_t *create();
+typedef struct hashtable_t
+{
+    struct _entry_t *entries;
+    size_t size;
+    size_t capacity;
+} hashtable_t;
 
-struct node_t *insert(struct node_t *list, struct gadget_t *data, const char *key);
+struct hashtable_t *create(uint16_t initialCapacity);
 
-bool find(struct node_t *list, const char *key);
+void destroy(struct hashtable_t *table);
 
-void printContent(struct node_t *list);
+int *insert(struct hashtable_t **table, int *data, const char *key);
+
+int *delete (struct hashtable_t *table, const char *key);
+
+union result find(struct hashtable_t *table, const char *key);
+
+void printContent(struct hashtable_t *table);
 
 #endif

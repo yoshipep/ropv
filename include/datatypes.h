@@ -26,55 +26,55 @@ typedef uint32_t addr32_t;
 
 typedef enum
 {
-    GENERIC_MODE,
-    INTEREST_MODE
+	GENERIC_MODE,
+	INTEREST_MODE
 } program_mode_t;
 
 typedef enum
 {
-    LOAD,
-    STORE,
-    CMP,
-    JMP,
-    ADD,
-    OR,
-    AND,
-    SHIFT,
-    SUB,
-    SET,
-    NOP,
-    MOV,
-    CALL,
-    SYSCALL,
-    BRK,
-    NOT,
-    NEG,
-    RET,
-    ATOMIC,
-    IO,
-    MUL,
-    DIV,
-    UNSUPORTED
+	LOAD,
+	STORE,
+	CMP,
+	JMP,
+	ADD,
+	OR,
+	AND,
+	SHIFT,
+	SUB,
+	SET,
+	NOP,
+	MOV,
+	CALL,
+	SYSCALL,
+	BRK,
+	NOT,
+	NEG,
+	RET,
+	ATOMIC,
+	IO,
+	MUL,
+	DIV,
+	UNSUPORTED
 } op_t;
 
 struct arguments
 {
-    char *file;
-    program_mode_t mode;
-    uint8_t arg_num;
-    uint8_t options;
+	char *file;
+	program_mode_t mode;
+	uint8_t arg_num;
+	uint8_t options;
 };
 
 typedef struct ins32_t
 {
-    addr32_t address;
-    int16_t immediate;
-    bool useImmediate;
-    bool isCompressed;
-    op_t operation;
-    char *disassembled;
-    char regToShift[3];
-    char regDest[3];
+	addr32_t address;
+	int16_t immediate;
+	bool useImmediate;
+	bool isCompressed;
+	op_t operation;
+	char *disassembled;
+	char regToShift[3];
+	char regDest[3];
 } ins32_t;
 
 #endif

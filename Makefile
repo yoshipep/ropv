@@ -5,8 +5,11 @@ RELDIR=release
 DBG=0
 DBGDIR=debug
 DBGCFLAGS=-Wall -Wextra -O0 -ggdb -fsanitize=address
+TESTDIR=test
 SOURCES=./src/ropv.c ./src/disas.c ./src/gadget.c ./src/node.c
 OBJS=$(SOURCES:.c=.o)
+TESTSOURCES=./test/hashtable_test.c ./src/hashtable.c
+TESTOBJS=$(TESTSOURCES:.c=.o)
 
 #$@ = Target de esa regla, en el primer caso es main
 #$^ = La expansión que hay a la derecha de los dos puntos
@@ -19,6 +22,9 @@ $(DBGDIR)/debug: $(OBJS)
 	$DBG=1
 	$(CC) $^ $(INCLUDE) $(DBGCFLAGS) -o $@
 
+$(TESTDIR)/hashtable_test: $(TESTOBJS)
+	$(CC) $^ $(INCLUDE) $(CFLAGS) -o $@
+
 %.o: %.c
 ifeq ($(DBG), 1)
 	$(CC) -c $< $(INCLUDE) $(DBGCFLAGS) -o $@
@@ -30,5 +36,6 @@ endif
 
 clean:
 	rm -rf ./src/*.o
+	rm -rf ./test/*.o
 
 

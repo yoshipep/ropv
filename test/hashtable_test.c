@@ -15,30 +15,36 @@
  *  with this program; if not, write to the Free Software Foundation, Inc.,
  *  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
+#include <stdio.h>
 
-#ifndef _NODE_H
-#define _NODE_H 1
+#include "hashtable.h"
 
-#include <stdbool.h>
-#include <stddef.h>
-#include <stdlib.h>
-#include <string.h>
-
-#include "gadget.h"
-
-typedef struct node_t
+int main()
 {
-	const char *key;
-	struct gadget_t *data;
-	struct node_t *next;
-} node_t;
-
-struct node_t *create();
-
-struct node_t *insert(struct node_t *list, struct gadget_t *data, const char *key);
-
-bool find(struct node_t *list, const char *key);
-
-void printContent(struct node_t *list);
-
-#endif
+    int x = 3;
+    struct hashtable_t *table = create(10);
+    struct hashtable_t *table2 = create(2);
+    insert(&table, &x, "Abeja");
+    insert(&table, &x, "Bebe");
+    insert(&table, &x, "Casa");
+    insert(&table, &x, "Danone");
+    insert(&table, &x, "Elefante");
+    printContent(table);
+    puts("");
+    insert(&table, &x, "Falta");
+    insert(&table, &x, "Gol");
+    insert(&table, &x, "Huno");
+    int *y = insert(&table, &x, "Indigente");
+    if (NULL == y)
+    {
+        insert(&table, &x, "Indigente");
+    }
+    insert(&table, &x, "Jaime");
+    insert(&table, &x, "Kase");
+    printContent(table);
+    destroy(table);
+    insert(&table2, &x, "XX");
+    puts("");
+    printContent(table2);
+    destroy(table2);
+}
