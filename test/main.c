@@ -23,23 +23,28 @@ int main()
 {
     int x = 3;
     struct hashtable_t *table = create(10);
-    insert(&table, &x, (unsigned char *)"Abeja");
-    insert(&table, &x, (unsigned char *)"Bebe");
-    insert(&table, &x, (unsigned char *)"Casa");
-    insert(&table, &x, (unsigned char *)"Danone");
-    insert(&table, &x, (unsigned char *)"Elefante");
+    struct hashtable_t *table2 = create(2);
+    insert(&table, &x, "Abeja");
+    insert(&table, &x, "Bebe");
+    insert(&table, &x, "Casa");
+    insert(&table, &x, "Danone");
+    insert(&table, &x, "Elefante");
     printContent(table);
     puts("");
-    insert(&table, &x, (unsigned char *)"Falta");
-    insert(&table, &x, (unsigned char *)"Gol");
-    insert(&table, &x, (unsigned char *)"Huno");
-    int *y = insert(&table, &x, (unsigned char *)"Indigente");
+    insert(&table, &x, "Falta");
+    insert(&table, &x, "Gol");
+    insert(&table, &x, "Huno");
+    int *y = insert(&table, &x, "Indigente");
     if (NULL == y)
     {
-        insert(&table, &x, (unsigned char *)"Indigente");
+        insert(&table, &x, "Indigente");
     }
-    insert(&table, &x, (unsigned char *)"Jaime");
-    insert(&table, &x, (unsigned char *)"Kase");
+    insert(&table, &x, "Jaime");
+    insert(&table, &x, "Kase");
     printContent(table);
     destroy(table);
+    insert(&table2, &x, "XX");
+    puts("");
+    printContent(table2);
+    destroy(table2);
 }

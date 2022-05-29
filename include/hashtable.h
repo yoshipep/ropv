@@ -25,9 +25,14 @@
 #include <stdlib.h>
 #include <string.h>
 
+typedef union result
+{
+    bool boolean;
+    void *null;
+} result;
 typedef struct _entry_t
 {
-    const unsigned char *key;
+    const char *key;
     int *data;
     struct _entry_t *next;
 } _entry_t;
@@ -43,11 +48,11 @@ struct hashtable_t *create(uint16_t initialCapacity);
 
 void destroy(struct hashtable_t *table);
 
-int *insert(struct hashtable_t **table, int *data, const unsigned char *key);
+int *insert(struct hashtable_t **table, int *data, const char *key);
 
-int *delete (struct hashtable_t *table, const unsigned char *key);
+int *delete (struct hashtable_t *table, const char *key);
 
-bool find(struct hashtable_t *table, const unsigned char *key);
+union result find(struct hashtable_t *table, const char *key);
 
 void printContent(struct hashtable_t *table);
 

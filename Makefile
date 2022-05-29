@@ -1,5 +1,5 @@
 CC=gcc
-CFLAGS=-Wall -O0 -ggdb
+CFLAGS=-Wall -Wextra -O0 -ggdb -fsanitize=address
 INCLUDE=-I ./include
 TESTDIR=test
 SOURCES=./test/main.c ./src/hashtable.c

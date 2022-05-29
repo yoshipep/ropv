@@ -22,17 +22,17 @@
 
 #define LOAD_FACTOR 0.75f
 
-static size_t hashIndex(const unsigned char *key, size_t capacity);
+static size_t hashIndex(const char *key, size_t capacity);
 
-static uint16_t hash(const unsigned char *str);
+static int16_t hash(const char *str);
 
 static float factorCarga(struct hashtable_t *table);
 
-static int *recuperar(struct _entry_t *entry, const unsigned char *key);
+static int *recuperar(struct _entry_t *entry, const char *key);
 
 static struct hashtable_t *rehashing(struct hashtable_t *table);
 
-static unsigned char **getKeys(struct hashtable_t *table);
+static const char **getKeys(struct hashtable_t *table);
 
 struct hashtable_t *create(uint16_t initialCapacity)
 {
@@ -45,53 +45,30 @@ struct hashtable_t *create(uint16_t initialCapacity)
 
 void destroy(struct hashtable_t *table)
 {
+    if (NULL == table)
+    {
+        return;
+    }
+
     free(table->entries);
     table->entries = NULL;
     free(table);
     table = NULL;
 }
 
-static size_t hashIndex(const unsigned char *key, size_t capacity)
+int *insert(hashtable_t **table, int *data, const char *key)
 {
-    uint16_t index = hash(key) % capacity;
-    if (index < 0)
+    if ((NULL == table) || (NULL == *table) || (NULL == key) ||
+        (0 == strlen(key)) || (NULL == data))
     {
-        index += capacity;
-    }
-    return index;
-}
-
-/*
- * See: https://stackoverflow.com/questions/40303333/how-to-replicate-java-hashcode-in-c-language
- */
-static uint16_t hash(const unsigned char *str)
-{
-    size_t i;
-    size_t length = strlen(str);
-    uint16_t hash = 0;
-
-    for (i = 0; i < length; i++)
-    {
-        hash = 31 * hash + str[i];
+        return NULL;
     }
 
-    return hash;
-}
-
-static float factorCarga(struct hashtable_t *table)
-{
-    return (float)table->size / table->capacity;
-}
-
-int *insert(hashtable_t **table, int *data, const unsigned char *key)
-{
-    if (((*table)->capacity == (*table)->size) || (factorCarga(*table) > LOAD_FACTOR))
+    if (((*table)->capacity == (*table)->size) ||
+        (factorCarga(*table) > LOAD_FACTOR))
     {
         hashtable_t *aux = rehashing(*table);
-        if (NULL != aux)
-        {
-            *table = aux;
-        }
+        *table = aux;
         return NULL;
     }
 
@@ -103,7 +80,8 @@ int *insert(hashtable_t **table, int *data, const unsigned char *key)
     entries = &(*table)->entries[pos];
     last = NULL;
 
-    while ((NULL != entries) && (NULL != entries->key) && (0 != strcmp(entries->key, key)))
+    while ((NULL != entries) && (NULL != entries->key) &&
+           (0 != strcmp(entries->key, key)))
     {
         last = entries;
         entries = entries->next;
@@ -122,12 +100,10 @@ int *insert(hashtable_t **table, int *data, const unsigned char *key)
         if (factorCarga(*table) > LOAD_FACTOR)
         {
             hashtable_t *aux = rehashing(*table);
-            if (NULL != aux)
-            {
-                *table = aux;
-            }
+            *table = aux;
         }
     }
+
     else
     {
         res = entries->data;
@@ -138,9 +114,10 @@ int *insert(hashtable_t **table, int *data, const unsigned char *key)
     return res;
 }
 
-int *delete (struct hashtable_t *table, const unsigned char *key)
+int *delete (struct hashtable_t *table, const char *key)
 {
-    if (0 == table->size)
+    if ((NULL == table) || (0 == table->size) || (NULL == key) ||
+        (0 == strlen(key)))
     {
         return NULL;
     }
@@ -193,7 +170,74 @@ int *delete (struct hashtable_t *table, const unsigned char *key)
     }
 }
 
-static int *recuperar(struct _entry_t *entry, const unsigned char *key)
+union result find(struct hashtable_t *table, const char *key)
+{
+    union result res;
+    if ((NULL == table) || (NULL == key) || (0 == strlen(key)))
+    {
+        res.null = NULL;
+        return res;
+    }
+    size_t pos = hashIndex(key, table->capacity);
+    res.boolean = !(NULL == recuperar(&table->entries[pos], key));
+    return res;
+}
+
+void printContent(struct hashtable_t *table)
+{
+    if (NULL == table)
+    {
+        return;
+    }
+    int *valor;
+    size_t pos;
+    size_t i = 0;
+    const char **keys = getKeys(table);
+
+    while (keys[i])
+    {
+        pos = hashIndex(keys[i], table->capacity);
+        valor = recuperar(&table->entries[pos], keys[i]);
+        printf("C: %s\tV: %d\n", keys[i], *valor);
+        i++;
+    }
+    free(keys);
+    keys = NULL;
+}
+
+static size_t hashIndex(const char *key, size_t capacity)
+{
+    int16_t index = hash(key) % capacity;
+    if (index < 0)
+    {
+        index += capacity;
+    }
+    return index;
+}
+
+/*
+ * See: https://stackoverflow.com/questions/40303333/how-to-replicate-java-hashcode-in-c-language
+ */
+static int16_t hash(const char *str)
+{
+    size_t i;
+    size_t length = strlen(str);
+    int16_t hash = 0;
+
+    for (i = 0; i < length; i++)
+    {
+        hash = 31 * hash + str[i];
+    }
+
+    return hash;
+}
+
+static float factorCarga(struct hashtable_t *table)
+{
+    return (float)table->size / table->capacity;
+}
+
+static int *recuperar(struct _entry_t *entry, const char *key)
 {
     struct _entry_t *aux = entry;
 
@@ -215,39 +259,29 @@ static int *recuperar(struct _entry_t *entry, const unsigned char *key)
 
 static struct hashtable_t *rehashing(struct hashtable_t *table)
 {
-    if (factorCarga(table) > LOAD_FACTOR)
+    size_t i;
+    struct hashtable_t *newTable = create(table->capacity * 2);
+
+    for (i = 0; i < table->size; i++)
     {
-        size_t i;
-        struct hashtable_t *newTable = create(table->capacity * 2);
-
-        for (i = 0; i < table->size; i++)
+        struct _entry_t *entries = &table->entries[i];
+        while (NULL != entries)
         {
-            struct _entry_t *entries = &table->entries[i];
-            while (NULL != entries)
+            if (NULL != entries->key)
             {
-                if (NULL != entries->key)
-                {
-                    insert(&newTable, entries->data, entries->key);
-                }
-                entries = entries->next;
+                insert(&newTable, entries->data, entries->key);
             }
+            entries = entries->next;
         }
-        destroy(table);
-        return newTable;
     }
-    return NULL;
+    destroy(table);
+    return newTable;
 }
 
-bool find(struct hashtable_t *table, const unsigned char *key)
-{
-    size_t pos = hashIndex(key, table->capacity);
-    return !(NULL == recuperar(&table->entries[pos], key));
-}
-
-static unsigned char **getKeys(hashtable_t *table)
+static const char **getKeys(hashtable_t *table)
 {
     size_t i;
-    unsigned char **keys = (unsigned char **)malloc(table->size * sizeof(unsigned char *) + 1);
+    const char **keys = (const char **)calloc(table->size + 1, sizeof(const char *));
     size_t j = 0;
 
     for (i = 0; i < table->capacity; i++)
@@ -257,31 +291,10 @@ static unsigned char **getKeys(hashtable_t *table)
         {
             if (NULL != entry->key)
             {
-                keys[j++] = (unsigned char *)strdup(entry->key);
+                keys[j++] = entry->key;
             }
             entry = entry->next;
         }
     }
-    keys[j] = 0x0;
     return keys;
-}
-
-void printContent(struct hashtable_t *table)
-{
-    if (NULL == table)
-    {
-        return;
-    }
-    int *valor;
-    size_t pos;
-    size_t i = 0;
-    unsigned char **keys = getKeys(table);
-
-    while (keys[i])
-    {
-        pos = hashIndex(keys[i], table->capacity);
-        valor = recuperar(&table->entries[pos], keys[i]);
-        printf("C: %s\tV: %#d\n", keys[i], *valor);
-        i++;
-    }
 }
