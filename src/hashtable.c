@@ -26,13 +26,13 @@ static size_t hashIndex(const unsigned char *key, size_t capacity);
 
 static uint16_t hash(const unsigned char *str);
 
-static float factorCarga(hashtable_t *table);
+static float factorCarga(struct hashtable_t *table);
 
-static int *recuperar(_entry_t *entry, const unsigned char *key);
+static int *recuperar(struct _entry_t *entry, const unsigned char *key);
 
-static struct hashtable_t *rehashing(hashtable_t *table);
+static struct hashtable_t *rehashing(struct hashtable_t *table);
 
-static unsigned char **getKeys(hashtable_t *table);
+static unsigned char **getKeys(struct hashtable_t *table);
 
 struct hashtable_t *create(uint16_t initialCapacity)
 {
@@ -41,6 +41,14 @@ struct hashtable_t *create(uint16_t initialCapacity)
     table->size = 0;
     table->capacity = initialCapacity;
     return table;
+}
+
+void destroy(struct hashtable_t *table)
+{
+    free(table->entries);
+    table->entries = NULL;
+    free(table);
+    table = NULL;
 }
 
 static size_t hashIndex(const unsigned char *key, size_t capacity)
@@ -70,7 +78,7 @@ static uint16_t hash(const unsigned char *str)
     return hash;
 }
 
-static float factorCarga(hashtable_t *table)
+static float factorCarga(struct hashtable_t *table)
 {
     return (float)table->size / table->capacity;
 }
@@ -130,7 +138,7 @@ int *insert(hashtable_t **table, int *data, const unsigned char *key)
     return res;
 }
 
-int *delete (hashtable_t *table, const unsigned char *key)
+int *delete (struct hashtable_t *table, const unsigned char *key)
 {
     if (0 == table->size)
     {
@@ -185,7 +193,7 @@ int *delete (hashtable_t *table, const unsigned char *key)
     }
 }
 
-static int *recuperar(_entry_t *entry, const unsigned char *key)
+static int *recuperar(struct _entry_t *entry, const unsigned char *key)
 {
     struct _entry_t *aux = entry;
 
@@ -205,7 +213,7 @@ static int *recuperar(_entry_t *entry, const unsigned char *key)
     }
 }
 
-static struct hashtable_t *rehashing(hashtable_t *table)
+static struct hashtable_t *rehashing(struct hashtable_t *table)
 {
     if (factorCarga(table) > LOAD_FACTOR)
     {
@@ -224,14 +232,13 @@ static struct hashtable_t *rehashing(hashtable_t *table)
                 entries = entries->next;
             }
         }
-        free(table);
-        table = NULL;
+        destroy(table);
         return newTable;
     }
     return NULL;
 }
 
-bool find(hashtable_t *table, const unsigned char *key)
+bool find(struct hashtable_t *table, const unsigned char *key)
 {
     size_t pos = hashIndex(key, table->capacity);
     return !(NULL == recuperar(&table->entries[pos], key));
@@ -259,7 +266,7 @@ static unsigned char **getKeys(hashtable_t *table)
     return keys;
 }
 
-void printContent(hashtable_t *table)
+void printContent(struct hashtable_t *table)
 {
     if (NULL == table)
     {
@@ -274,7 +281,7 @@ void printContent(hashtable_t *table)
     {
         pos = hashIndex(keys[i], table->capacity);
         valor = recuperar(&table->entries[pos], keys[i]);
-        printf("C: %s\tV: %d\n", keys[i], *valor);
+        printf("C: %s\tV: %#d\n", keys[i], *valor);
         i++;
     }
 }

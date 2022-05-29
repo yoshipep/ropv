@@ -41,12 +41,14 @@ typedef struct hashtable_t
 
 struct hashtable_t *create(uint16_t initialCapacity);
 
-int *insert(hashtable_t **table, int *data, const unsigned char *key);
+void destroy(struct hashtable_t *table);
 
-int *delete (hashtable_t *table, const unsigned char *key);
+int *insert(struct hashtable_t **table, int *data, const unsigned char *key);
 
-bool find(hashtable_t *table, const unsigned char *key);
+int *delete (struct hashtable_t *table, const unsigned char *key);
 
-void printContent(hashtable_t *table);
+bool find(struct hashtable_t *table, const unsigned char *key);
+
+void printContent(struct hashtable_t *table);
 
 #endif

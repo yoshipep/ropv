@@ -41,4 +41,5 @@ int main()
     insert(&table, &x, (unsigned char *)"Jaime");
     insert(&table, &x, (unsigned char *)"Kase");
     printContent(table);
+    destroy(table);
 }
