@@ -16,30 +16,37 @@
  *  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
-#ifndef _GADGET_H
-#define _GADGET_H 1
+#ifndef _HASHTABLE_H
+#define _HASHTABLE_H 1
 
-#define MAX_LENGTH 5
-
+#include <stdbool.h>
+#include <stddef.h>
 #include <stdint.h>
+#include <stdlib.h>
+#include <string.h>
 
-#include "datatypes.h"
-#include "node.h"
-
-typedef struct gadget_t
+typedef struct _entry_t
 {
-    ins32_t *instructions[MAX_LENGTH];
-    uint8_t length;
-} gadget_t;
+    const unsigned char *key;
+    int *data;
+    struct _entry_t *next;
+} _entry_t;
 
-extern struct arguments args;
+typedef struct hastable_t
+{
+    struct _entry_t *entries;
+    size_t size;
+    size_t capacity;
+} hastable_t;
 
-extern ins32_t *preliminary_gadget_list[100];
+struct hastable_t *create(uint16_t initialCapacity);
 
-extern struct node_t *list;
+int *insert(struct hastable_t *table, int *data, const unsigned char *key);
 
-void processGadgets(uint8_t lastElement, uint8_t insProcessed, op_t lastOperation);
+int *delete (struct hastable_t *table, const unsigned char *key);
 
-void printGadget(struct gadget_t *gadget);
+bool find(struct hastable_t *table, const unsigned char *key);
+
+void printContent(struct hastable_t *table);
 
 #endif

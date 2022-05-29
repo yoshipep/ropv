@@ -16,17 +16,28 @@
  *  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
-#ifndef _DISAS_H
-#define _DISAS_H 1
+#include "hashtable.h"
 
-#include "datatypes.h"
-
-struct ins32_t *preliminary_gadget_list[100];
-
-struct node_t *list;
-
-uint8_t disassemble(char *elfFile);
-
-uint8_t fillData(struct ins32_t *instruction);
-
-#endif
+int main()
+{
+    int x = 3;
+    struct hashtable_t *table = create(10);
+    insert(table, &x, "Abeja");
+    insert(table, &x, "Bebe");
+    insert(table, &x, "Casa");
+    insert(table, &x, "Danone");
+    insert(table, &x, "Elefante");
+    printContent(table);
+    puts("");
+    insert(table, &x, "Falta");
+    insert(table, &x, "Gol");
+    insert(table, &x, "Huno");
+    int *y = insert(table, &x, "Indigente");
+    if (NULL == y)
+    {
+        insert(table, &x, "Indigente");
+    }
+    insert(table, &x, "Jaime");
+    insert(table, &x, "Kase");
+    printContent(table);
+}
