@@ -32,21 +32,21 @@ typedef struct _entry_t
     struct _entry_t *next;
 } _entry_t;
 
-typedef struct hastable_t
+typedef struct hashtable_t
 {
     struct _entry_t *entries;
     size_t size;
     size_t capacity;
-} hastable_t;
+} hashtable_t;
 
-struct hastable_t *create(uint16_t initialCapacity);
+struct hashtable_t *create(uint16_t initialCapacity);
 
-int *insert(struct hastable_t *table, int *data, const unsigned char *key);
+int *insert(hashtable_t **table, int *data, const unsigned char *key);
 
-int *delete (struct hastable_t *table, const unsigned char *key);
+int *delete (hashtable_t *table, const unsigned char *key);
 
-bool find(struct hastable_t *table, const unsigned char *key);
+bool find(hashtable_t *table, const unsigned char *key);
 
-void printContent(struct hastable_t *table);
+void printContent(hashtable_t *table);
 
 #endif

@@ -15,6 +15,7 @@
  *  with this program; if not, write to the Free Software Foundation, Inc.,
  *  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
+#include <stdio.h>
 
 #include "hashtable.h"
 
@@ -22,22 +23,22 @@ int main()
 {
     int x = 3;
     struct hashtable_t *table = create(10);
-    insert(table, &x, "Abeja");
-    insert(table, &x, "Bebe");
-    insert(table, &x, "Casa");
-    insert(table, &x, "Danone");
-    insert(table, &x, "Elefante");
+    insert(&table, &x, (unsigned char *)"Abeja");
+    insert(&table, &x, (unsigned char *)"Bebe");
+    insert(&table, &x, (unsigned char *)"Casa");
+    insert(&table, &x, (unsigned char *)"Danone");
+    insert(&table, &x, (unsigned char *)"Elefante");
     printContent(table);
     puts("");
-    insert(table, &x, "Falta");
-    insert(table, &x, "Gol");
-    insert(table, &x, "Huno");
-    int *y = insert(table, &x, "Indigente");
+    insert(&table, &x, (unsigned char *)"Falta");
+    insert(&table, &x, (unsigned char *)"Gol");
+    insert(&table, &x, (unsigned char *)"Huno");
+    int *y = insert(&table, &x, (unsigned char *)"Indigente");
     if (NULL == y)
     {
-        insert(table, &x, "Indigente");
+        insert(&table, &x, (unsigned char *)"Indigente");
     }
-    insert(table, &x, "Jaime");
-    insert(table, &x, "Kase");
+    insert(&table, &x, (unsigned char *)"Jaime");
+    insert(&table, &x, (unsigned char *)"Kase");
     printContent(table);
 }

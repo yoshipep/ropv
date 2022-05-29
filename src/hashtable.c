@@ -26,17 +26,17 @@ static size_t hashIndex(const unsigned char *key, size_t capacity);
 
 static uint16_t hash(const unsigned char *str);
 
-static float factorCarga(struct hastable_t *table);
+static float factorCarga(hashtable_t *table);
 
-static int *recuperar(struct _entry_t *entry, const unsigned char *key);
+static int *recuperar(_entry_t *entry, const unsigned char *key);
 
-static void rehashing(struct hastable_t *table);
+static struct hashtable_t *rehashing(hashtable_t *table);
 
-static unsigned char **getKeys(struct hastable_t *table);
+static unsigned char **getKeys(hashtable_t *table);
 
-struct hastable_t *create(uint16_t initialCapacity)
+struct hashtable_t *create(uint16_t initialCapacity)
 {
-    struct hastable_t *table = (hastable_t *)malloc(sizeof(struct hastable_t));
+    struct hashtable_t *table = (hashtable_t *)malloc(sizeof(hashtable_t));
     table->entries = (struct _entry_t *)calloc(initialCapacity, sizeof(_entry_t));
     table->size = 0;
     table->capacity = initialCapacity;
@@ -70,16 +70,20 @@ static uint16_t hash(const unsigned char *str)
     return hash;
 }
 
-static float factorCarga(struct hastable_t *table)
+static float factorCarga(hashtable_t *table)
 {
     return (float)table->size / table->capacity;
 }
 
-int *insert(struct hastable_t *table, int *data, const unsigned char *key)
+int *insert(hashtable_t **table, int *data, const unsigned char *key)
 {
-    if ((table->capacity == table->size) || (factorCarga(table) > LOAD_FACTOR))
+    if (((*table)->capacity == (*table)->size) || (factorCarga(*table) > LOAD_FACTOR))
     {
-        rehashing(table);
+        hashtable_t *aux = rehashing(*table);
+        if (NULL != aux)
+        {
+            *table = aux;
+        }
         return NULL;
     }
 
@@ -87,8 +91,8 @@ int *insert(struct hastable_t *table, int *data, const unsigned char *key)
     uint16_t pos;
     struct _entry_t *entries, *last;
 
-    pos = hashIndex(key, table->capacity);
-    entries = &table->entries[pos];
+    pos = hashIndex(key, (*table)->capacity);
+    entries = &(*table)->entries[pos];
     last = NULL;
 
     while ((NULL != entries) && (NULL != entries->key) && (0 != strcmp(entries->key, key)))
@@ -99,7 +103,7 @@ int *insert(struct hastable_t *table, int *data, const unsigned char *key)
 
     if (NULL == entries)
     {
-        entries = calloc(1, sizeof(struct _entry_t));
+        entries = calloc(1, sizeof(_entry_t));
         if (NULL != last)
         {
             last->next = entries;
@@ -107,9 +111,13 @@ int *insert(struct hastable_t *table, int *data, const unsigned char *key)
 
         entries->key = key;
         entries->data = data;
-        if (factorCarga(table) > LOAD_FACTOR)
+        if (factorCarga(*table) > LOAD_FACTOR)
         {
-            rehashing(table);
+            hashtable_t *aux = rehashing(*table);
+            if (NULL != aux)
+            {
+                *table = aux;
+            }
         }
     }
     else
@@ -118,11 +126,11 @@ int *insert(struct hastable_t *table, int *data, const unsigned char *key)
         entries->key = key;
         entries->data = data;
     }
-    table->size++;
+    (*table)->size++;
     return res;
 }
 
-int *delete (struct hastable_t *table, const unsigned char *key)
+int *delete (hashtable_t *table, const unsigned char *key)
 {
     if (0 == table->size)
     {
@@ -177,7 +185,7 @@ int *delete (struct hastable_t *table, const unsigned char *key)
     }
 }
 
-static int *recuperar(struct _entry_t *entry, const unsigned char *key)
+static int *recuperar(_entry_t *entry, const unsigned char *key)
 {
     struct _entry_t *aux = entry;
 
@@ -197,13 +205,12 @@ static int *recuperar(struct _entry_t *entry, const unsigned char *key)
     }
 }
 
-static void rehashing(struct hastable_t *table)
+static struct hashtable_t *rehashing(hashtable_t *table)
 {
     if (factorCarga(table) > LOAD_FACTOR)
     {
         size_t i;
-        struct hastable_t *aux = table;
-        struct hastable_t *newTable = create(table->capacity * 2);
+        struct hashtable_t *newTable = create(table->capacity * 2);
 
         for (i = 0; i < table->size; i++)
         {
@@ -212,23 +219,25 @@ static void rehashing(struct hastable_t *table)
             {
                 if (NULL != entries->key)
                 {
-                    insert(newTable, entries->data, entries->key);
+                    insert(&newTable, entries->data, entries->key);
                 }
                 entries = entries->next;
             }
         }
-        table = newTable;
-        free(aux);
+        free(table);
+        table = NULL;
+        return newTable;
     }
+    return NULL;
 }
 
-bool find(struct hastable_t *table, const unsigned char *key)
+bool find(hashtable_t *table, const unsigned char *key)
 {
     size_t pos = hashIndex(key, table->capacity);
     return !(NULL == recuperar(&table->entries[pos], key));
 }
 
-static unsigned char **getKeys(struct hastable_t *table)
+static unsigned char **getKeys(hashtable_t *table)
 {
     size_t i;
     unsigned char **keys = (unsigned char **)malloc(table->size * sizeof(unsigned char *) + 1);
@@ -250,7 +259,7 @@ static unsigned char **getKeys(struct hastable_t *table)
     return keys;
 }
 
-void printContent(struct hastable_t *table)
+void printContent(hashtable_t *table)
 {
     if (NULL == table)
     {
