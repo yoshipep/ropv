@@ -4,7 +4,7 @@ INCLUDE=-I ./include
 RELDIR=release
 DBG=0
 DBGDIR=debug
-DBGCFLAGS=-Wall -O0 -ggdb
+DBGCFLAGS=-Wall -Wextra -O0 -ggdb -fsanitize=address
 SOURCES=./src/ropv.c ./src/disas.c ./src/gadget.c ./src/node.c
 OBJS=$(SOURCES:.c=.o)
 

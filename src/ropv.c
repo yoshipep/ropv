@@ -24,9 +24,9 @@
 #include "disas.h"
 
 static struct argp_option options[] = {
-    {"all", 'a', 0, 0, "Show all gadgets. Option selected by default"},
-    {"interest", 'i', 0, 0, "Show most interesting gadgets"},
-    {"jop", 'j', 0, 0, "Enable JOP gadgets"},
+    {"all", 'a', 0, 0, "Show all gadgets. Option selected by default", 0},
+    {"interest", 'i', 0, 0, "Show most interesting gadgets", 0},
+    {"jop", 'j', 0, 0, "Enable JOP gadgets", 0},
     {0}};
 
 struct arguments args;
