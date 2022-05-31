@@ -16,8 +16,6 @@
  *  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
-#include <stdio.h>
-
 #include "hashtable.h"
 
 #define LOAD_FACTOR 0.75f
@@ -28,7 +26,7 @@ static int16_t hash(const char *str);
 
 static float factorCarga(struct hashtable_t *table);
 
-static int *recuperar(struct _entry_t *entry, const char *key);
+static struct gadget_t *recuperar(struct _entry_t *entry, const char *key);
 
 static struct hashtable_t *rehashing(struct hashtable_t *table);
 
@@ -56,7 +54,7 @@ void destroy(struct hashtable_t *table)
     table = NULL;
 }
 
-int *insert(hashtable_t **table, int *data, const char *key)
+struct gadget_t *insert(hashtable_t **table, struct gadget_t *data, const char *key)
 {
     if ((NULL == table) || (NULL == *table) || (NULL == key) ||
         (0 == strlen(key)) || (NULL == data))
@@ -72,7 +70,7 @@ int *insert(hashtable_t **table, int *data, const char *key)
         return NULL;
     }
 
-    int *res;
+    struct gadget_t *res;
     uint16_t pos;
     struct _entry_t *entries, *last;
 
@@ -102,6 +100,7 @@ int *insert(hashtable_t **table, int *data, const char *key)
             hashtable_t *aux = rehashing(*table);
             *table = aux;
         }
+        (*table)->size++;
     }
 
     else
@@ -109,12 +108,15 @@ int *insert(hashtable_t **table, int *data, const char *key)
         res = entries->data;
         entries->key = key;
         entries->data = data;
+        if (NULL == last)
+        {
+            (*table)->size++;
+        }
     }
-    (*table)->size++;
     return res;
 }
 
-int *delete (struct hashtable_t *table, const char *key)
+struct gadget_t *delete (struct hashtable_t *table, const char *key)
 {
     if ((NULL == table) || (0 == table->size) || (NULL == key) ||
         (0 == strlen(key)))
@@ -122,7 +124,7 @@ int *delete (struct hashtable_t *table, const char *key)
         return NULL;
     }
 
-    int *res;
+    struct gadget_t *res;
     uint16_t pos;
     struct _entry_t *entries, *last;
 
@@ -198,7 +200,7 @@ void printContent(struct hashtable_t *table)
     {
         pos = hashIndex(keys[i], table->capacity);
         valor = recuperar(&table->entries[pos], keys[i]);
-        printf("C: %s\tV: %d\n", keys[i], *valor);
+        printGadget(valor);
         i++;
     }
     free(keys);
@@ -237,7 +239,7 @@ static float factorCarga(struct hashtable_t *table)
     return (float)table->size / table->capacity;
 }
 
-static int *recuperar(struct _entry_t *entry, const char *key)
+static struct gadget_t *recuperar(struct _entry_t *entry, const char *key)
 {
     struct _entry_t *aux = entry;
 

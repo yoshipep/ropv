@@ -177,6 +177,7 @@ void processGadgets(uint8_t lastElement, uint8_t insProcessed, op_t lastOperatio
             last = insert(last, gadget, key);
         }
         free(key);
+        key = NULL;
     }
 }
 
@@ -194,6 +195,8 @@ static char *generateKey(struct gadget_t *gadget)
         length = strlen(prettified);
         strncpy(&buf[index], prettified, length);
         index += length;
+        free(prettified);
+        prettified = NULL;
     }
     return buf;
 }
@@ -223,9 +226,8 @@ static char *prettifyString(char *src)
     }
     buf[i] = 0x0;
     length = strlen(buf) + 1;
-    res = (char *)malloc(length * sizeof(char));
+    res = (char *)calloc(length, sizeof(char));
     strncpy(res, buf, length);
-    res[length - 1] = 0x0;
     return res;
 }
 
@@ -253,7 +255,11 @@ void printGadget(struct gadget_t *gadget)
             {
                 printf("%s;%c", prettified, 0x20);
             }
+            free(prettified);
+            prettified = NULL;
         }
         putchar(0x0a); // Newline
+        free(gadget);
+        gadget = NULL;
     }
 }

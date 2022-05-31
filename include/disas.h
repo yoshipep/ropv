@@ -20,6 +20,7 @@
 #define _DISAS_H 1
 
 #include "datatypes.h"
+#include "node.h"
 
 struct ins32_t *preliminary_gadget_list[100];
 

@@ -25,6 +25,8 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include "gadget.h"
+
 typedef union result
 {
     bool boolean;
@@ -48,9 +50,9 @@ struct hashtable_t *create(uint16_t initialCapacity);
 
 void destroy(struct hashtable_t *table);
 
-int *insert(struct hashtable_t **table, int *data, const char *key);
+struct gadget_t *insert(struct hashtable_t **table, struct gadget_t *data, const char *key);
 
-int *delete (struct hashtable_t *table, const char *key);
+struct gadget_t *elete(struct hashtable_t *table, const char *key);
 
 union result find(struct hashtable_t *table, const char *key);
 

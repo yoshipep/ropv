@@ -28,7 +28,6 @@
 #include "disas.h"
 #include "errors.h"
 #include "gadget.h"
-#include "node.h"
 
 #define DEFAULT_PERM 0644
 #define DUMMY_FILE "/tmp/disas.s"
@@ -244,7 +243,7 @@ static uint8_t parseContent(char *assemblyFile)
             ((line[0] - '0' >= 0) && (line[0] - '0' <= 9)))
         {
             start = true;
-            address = malloc(sizeof(char) * 8);
+            address = calloc(9, sizeof(char));
             address = strncpy(address, line, 8);
             baseAddress = strtol(address, NULL, 0x10);
             free(address);
@@ -288,10 +287,9 @@ static uint8_t parseContent(char *assemblyFile)
 
             bytes = 0;
             startPos += 1;
-            current = (ins32_t *)malloc(sizeof(ins32_t));
-            memset(current, 0x0, sizeof(ins32_t));
+            current = (ins32_t *)calloc(1, sizeof(ins32_t));
             current->address = baseAddress + nIns;
-            current->disassembled = (char *)malloc(sizeof(char) * (endPos - startPos));
+            current->disassembled = (char *)calloc((endPos - startPos) + 1, sizeof(char));
             strncpy(current->disassembled, &line[startPos], endPos - startPos);
             last = fillData(current);
 
@@ -299,6 +297,14 @@ static uint8_t parseContent(char *assemblyFile)
             {
                 insProcessed += 1;
             }
+
+            opcode = strstr(line, "\t") + 1;
+            while (0x20 != *opcode++)
+            {
+                bytes++;
+            }
+
+            current->isCompressed = (4 == bytes) ? true : false;
 
             if (JMP == current->operation)
             {
@@ -327,21 +333,6 @@ static uint8_t parseContent(char *assemblyFile)
                 isEnd = true;
             }
 
-            opcode = strstr(line, "\t") + 1;
-            while (0x20 != *opcode++)
-            {
-                bytes++;
-            }
-
-            if (4 == bytes)
-            {
-                current->isCompressed = true;
-            }
-
-            else
-            {
-                current->isCompressed = false;
-            }
             nIns += bytes / 2;
         }
 
@@ -570,33 +561,29 @@ uint8_t fillData(struct ins32_t *instruction)
 
 static void setInmediate(struct ins32_t *instruction)
 {
-    char *dummy;
+    char buf[16];
+    memset(buf, 0x0, 16);
     size_t size;
     size_t startPos = strlen(instruction->disassembled) - 1;
     char *isPresent = strstr(instruction->disassembled, "0x");
 
     if (isPresent)
     {
-        size = startPos - (&instruction->disassembled[startPos] - isPresent);
-        dummy = (char *)malloc(sizeof(char) * size);
-
-        strncpy(dummy, &instruction->disassembled[size + 2], size);
-        instruction->immediate = atoi(dummy);
-        goto liberate;
+        isPresent++;
+        isPresent++;
+        size = strlen(isPresent);
+        memcpy(buf, isPresent, size);
+        instruction->immediate = atoi(buf);
+        return;
     }
 
     while (',' != instruction->disassembled[startPos - 1])
     {
         startPos--;
     }
-
-    dummy = (char *)malloc(sizeof(char) * (strlen(instruction->disassembled) - startPos));
-    strncpy(dummy, &instruction->disassembled[startPos], startPos);
-    instruction->immediate = atoi(dummy);
-
-liberate:
-    free(dummy);
-    dummy = NULL;
+    size = strlen(&instruction->disassembled[startPos]);
+    memcpy(buf, &instruction->disassembled[startPos], size);
+    instruction->immediate = atoi(buf);
 }
 
 static inline void setRegDest(struct ins32_t *instruction)
