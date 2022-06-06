@@ -40,7 +40,7 @@ static uint8_t parseContent(char *assemblyFile);
 
 static __attribute__((always_inline)) inline void removeExtraInfo(struct ins32_t *instruction);
 
-static __attribute__((always_inline)) inline void setRegDest(struct ins32_t *instruction);
+static inline void setRegDest(struct ins32_t *instruction);
 
 static __attribute__((always_inline)) inline bool checkArch(Elf32_Half arch);
 
@@ -50,6 +50,7 @@ static __attribute__((always_inline)) inline uint8_t pushToPGL(struct ins32_t *i
 
 static inline uint8_t pushToPGL(struct ins32_t *instruction)
 {
+    // Inserts new record in the list and return it's index
     static uint8_t pos = 0;
     preliminary_gadget_list[pos % 100] = instruction;
     return pos++ % 100;
@@ -57,6 +58,7 @@ static inline uint8_t pushToPGL(struct ins32_t *instruction)
 
 static inline bool checkArch(Elf32_Half arch)
 {
+    // Return true if the binary is from the RISC-V arch
     return arch == 243;
 }
 
@@ -81,6 +83,7 @@ static uint8_t process_elf(char *elfFile)
     }
     res = 0;
 
+    // Read the ELF header
     if (!fread(&header, sizeof(header), 1, file))
     {
         fprintf(stderr, "[-] Error while reading the ELF file\n");
@@ -88,13 +91,15 @@ static uint8_t process_elf(char *elfFile)
         goto close;
     }
 
-    // check so its really an elf file
+    // Check so its really an elf file
     if (!memcmp(header.e_ident, ELFMAG, SELFMAG) == 0)
     {
         fprintf(stderr, "[-] Not an ELF file\n");
         res = EIFILE;
         goto close;
     }
+
+    // Check the arch
     if (!checkArch(header.e_machine))
     {
         fprintf(stderr, "[-] Bad architecture\n");
@@ -102,6 +107,7 @@ static uint8_t process_elf(char *elfFile)
         goto close;
     }
 
+    // Check the bitness
     if (getBits(&header))
     {
         fprintf(stderr, "[-] Bitness not suported\n");
@@ -109,6 +115,7 @@ static uint8_t process_elf(char *elfFile)
         goto close;
     }
 
+    // Check if the program has any program header
     if (!header.e_phnum)
     {
         fprintf(stderr, "[-] Invalid ELF file\n");
@@ -143,6 +150,7 @@ uint8_t disassemble(char *elfFile)
         goto fail;
     }
 
+    // Checks the file provided
     if (process_elf(elfFile))
     {
         goto fail;
@@ -150,7 +158,7 @@ uint8_t disassemble(char *elfFile)
 
     child = fork();
 
-    if (!child)
+    if (0 == child)
     {
         dup2(fd, STDOUT_FILENO);
         dup2(tempfd, STDERR_FILENO);
@@ -163,6 +171,7 @@ uint8_t disassemble(char *elfFile)
     close(tempfd);
     waitpid(child, &returnStatus, 0);
 
+    // Wait for the child
     if (returnStatus)
     {
         fprintf(stderr, "[-] Program failed\n");
@@ -206,8 +215,10 @@ static uint8_t parseContent(char *assemblyFile)
         fprintf(stderr, "[-] Unable to open the dummy file\n");
         return EOPEN;
     }
-    // unlink(assemblyFile);
+    unlink(assemblyFile);
     list = create();
+    spDuplicated = create();
+
     do
     {
         read = getline(&line, &len, file) != -1;
@@ -216,7 +227,7 @@ static uint8_t parseContent(char *assemblyFile)
             break;
         }
 
-        // Program process from .text section
+        // Start processing from .text section
         if (!strstr(line, ".text:") && !startProcessing)
         {
             continue;
@@ -231,7 +242,8 @@ static uint8_t parseContent(char *assemblyFile)
         }
 
         // Check if has reached the end of a function
-        if (isEnd && strstr(line, "\n"))
+        if ((0 == strcmp(line, "\n")) || strstr(line, "...") ||
+            strstr(line, "unimp"))
         {
             isEnd = false;
             start = false;
@@ -245,6 +257,7 @@ static uint8_t parseContent(char *assemblyFile)
             start = true;
             address = calloc(9, sizeof(char));
             address = strncpy(address, line, 8);
+            // Stores the base address of the function
             baseAddress = strtol(address, NULL, 0x10);
             free(address);
             address = NULL;
@@ -253,16 +266,13 @@ static uint8_t parseContent(char *assemblyFile)
             continue;
         }
 
+        // If the current line belongs to a function
         if (start)
         {
             startPos = 0;
             nTabs = 0;
-            if ((0xa == line[0]) || strstr(line, "...") || strstr(line, "unimp"))
-            {
-                start = false;
-                continue;
-            }
 
+            // Check if the current line has comments.
             pos = strstr(line, "#");
 
             if (!pos)
@@ -276,6 +286,8 @@ static uint8_t parseContent(char *assemblyFile)
                 endPos = pos - line - 1;
             }
 
+            // Advances the start pointer. At the end line[startpos] till line[endPos]
+            // will have our instruction disassembled
             while (line[startPos] && nTabs < 2)
             {
                 startPos++;
@@ -339,7 +351,6 @@ static uint8_t parseContent(char *assemblyFile)
     } while (read);
 
     printContent(list);
-
     return 0;
 }
 

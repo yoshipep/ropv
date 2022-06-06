@@ -26,6 +26,8 @@ struct ins32_t *preliminary_gadget_list[100];
 
 struct node_t *list;
 
+extern struct node_t *spDuplicated;
+
 uint8_t disassemble(char *elfFile);
 
 uint8_t fillData(struct ins32_t *instruction);

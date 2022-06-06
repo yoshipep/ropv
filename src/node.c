@@ -32,11 +32,17 @@ struct node_t *insert(struct node_t *list, struct gadget_t *data, const char *ke
     return list->next;
 }
 
-bool find(struct node_t *list, const char *key)
+void update(struct node_t *node, struct gadget_t *data, const char *key)
+{
+    node->key = key;
+    node->data = data;
+}
+
+struct node_t *find(struct node_t *list, const char *key)
 {
     if (NULL == list)
     {
-        return false;
+        return NULL;
     }
 
     struct node_t *head = list;
@@ -44,11 +50,11 @@ bool find(struct node_t *list, const char *key)
     {
         if (0 == strcmp(head->key, key))
         {
-            return true;
+            return head;
         }
         head = head->next;
     }
-    return false;
+    return NULL;
 }
 
 void printContent(struct node_t *list)
@@ -65,9 +71,44 @@ void printContent(struct node_t *list)
     }
 }
 
-/*struct node_t *remove(struct node_t *list, const char *key)
+struct gadget_t *delete(struct node_t *list, const char *key)
 {
-    // TODO: Implementar
-    struct node_t *first = list, *aux = list;
-    return NULL;
-}*/
+    if (NULL == list)
+    {
+        return NULL;
+    }
+
+    struct gadget_t *res;
+    struct node_t *head = list, *last = NULL;
+    while ((NULL != head->data) && (0 != strcmp(head->key, key)))
+    {
+        last = head;
+        head = head->next;
+    }
+
+    if (NULL == last)
+    {
+        res = head->data;
+        list = list->next;
+        free(head);
+        head = NULL;
+        return res;
+    }
+
+    if ((NULL == head->data) && (0 == strcmp(last->key, key)))
+    {
+        free(head);
+        head = NULL;
+        return last->data;
+    }
+    else if (NULL == head->data)
+    {
+        return NULL;
+    }
+
+    res = head->data;
+    last->next = head->next;
+    free(head);
+    head = NULL;
+    return res;
+}

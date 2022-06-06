@@ -38,6 +38,8 @@ extern ins32_t *preliminary_gadget_list[100];
 
 extern struct node_t *list;
 
+struct node_t *spDuplicated;
+
 void processGadgets(uint8_t lastElement, uint8_t insProcessed, op_t lastOperation);
 
 void printGadget(struct gadget_t *gadget);

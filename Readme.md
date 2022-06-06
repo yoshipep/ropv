@@ -4,9 +4,9 @@ _ropv_ is a Return Oriented Programming (ROP) gadget finder for RISC-V binaries.
 
 ## Installation
 
-To build the program simply run the following command:
+First you will need the RISC-V toolchain, available through this [link](https://github.com/riscv-collab/riscv-gnu-toolchain). You can also find it in this repo.
 
-    make
+To build the program execute the Makefile
 
 ## Usage
 
@@ -21,10 +21,3 @@ To build the program simply run the following command:
         -V, --version              Print program version
 
     Report bugs to comes.josep2@gmail.com.
-
-## TODO
-
-- [x] Choose the best option to disas and extract instructions from the binary.
-- [ ] Code the program.
-- [ ] Test the program.
-- [x] Provide how the program is used.

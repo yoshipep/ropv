@@ -27,6 +27,8 @@
 
 static struct node_t *last = NULL;
 
+static struct node_t *lastSp = NULL;
+
 void printGadget(struct gadget_t *gadget);
 
 static char *prettifyString(char *src);
@@ -39,9 +41,11 @@ static struct gadget_t *jopFilter(struct gadget_t *gadget);
 
 static char *generateKey(struct gadget_t *gadget);
 
+static char *updateKey(char *key);
+
 static bool checkValidity(struct ins32_t *instruction);
 
-static inline bool messSp(struct ins32_t *instruction);
+static bool messSp(struct ins32_t *instruction);
 
 static bool checkValidity(struct ins32_t *instruction)
 {
@@ -53,12 +57,12 @@ static bool checkValidity(struct ins32_t *instruction)
            !strstr(instruction->disassembled, "auipc") && !messSp(instruction);
 }
 
-static inline bool messSp(struct ins32_t *instruction)
+static bool messSp(struct ins32_t *instruction)
 {
-    return (ADD == instruction->operation && instruction->useImmediate &&
-            instruction->immediate < 0 &&
+    return ((ADD == instruction->operation) && instruction->useImmediate &&
+            (instruction->immediate < 0) &&
             strstr(instruction->disassembled, "addi\tsp")) ||
-           (SUB == instruction->operation &&
+           ((SUB == instruction->operation) &&
             strstr(instruction->disassembled, "sub\tsp"));
 }
 
@@ -87,6 +91,7 @@ static void basicFilter(uint8_t lastElement, uint8_t insProcessed, struct gadget
     }
 }
 
+// Filter to obtain gadgets that modify syscall registers
 static void advancedFilter(struct gadget_t *gadget)
 {
     int8_t i = gadget->length - 1;
@@ -140,7 +145,9 @@ static struct gadget_t *jopFilter(struct gadget_t *gadget)
 
 void processGadgets(uint8_t lastElement, uint8_t insProcessed, op_t lastOperation)
 {
-    char *key;
+    char *key, *tmp, *newKey;
+    uint8_t index;
+    struct node_t *found;
     struct gadget_t *gadget = (gadget_t *)malloc(sizeof(struct gadget_t));
 
     basicFilter(lastElement, insProcessed, gadget);
@@ -172,15 +179,60 @@ void processGadgets(uint8_t lastElement, uint8_t insProcessed, op_t lastOperatio
             last = list;
         }
 
-        if (!find(list, key))
+        for (index = 0; index < gadget->length; index++)
         {
-            last = insert(last, gadget, key);
+            if ((ADD == gadget->instructions[index]->operation) &&
+                (gadget->instructions[index]->useImmediate) &&
+                (0 == strcmp(gadget->instructions[index]->regDest, "sp")))
+            {
+                break;
+            }
         }
-        free(key);
-        key = NULL;
+
+        if ((gadget->length >= 2) && (index < gadget->length))
+        {
+
+            if (NULL == lastSp)
+            {
+                lastSp = spDuplicated;
+            }
+
+            newKey = updateKey(key);
+            found = find(spDuplicated, newKey);
+
+            if (NULL == found)
+            {
+                lastSp = insert(lastSp, gadget, newKey);
+                last = insert(last, gadget, key);
+            }
+
+            else
+            {
+                if (found->data->instructions[index]->immediate > gadget->instructions[index]->immediate)
+                {
+                    tmp = generateKey(found->data);
+                    update(found, gadget, newKey);
+                    delete (list, tmp);
+                    free(tmp);
+                    tmp = NULL;
+                }
+            }
+            free(key);
+            free(newKey);
+            key = NULL;
+            newKey = NULL;
+        }
+        else
+        {
+            if (NULL == find(list, key))
+            {
+                last = insert(last, gadget, key);
+            }
+        }
     }
 }
 
+// Generates a key where all the instructions have no separation
 static char *generateKey(struct gadget_t *gadget)
 {
     int8_t i;
@@ -196,11 +248,11 @@ static char *generateKey(struct gadget_t *gadget)
         strncpy(&buf[index], prettified, length);
         index += length;
         free(prettified);
-        prettified = NULL;
     }
     return buf;
 }
 
+// Prettifies the string before gets printed
 static char *prettifyString(char *src)
 {
     char last, *res, buf[50];
@@ -259,7 +311,22 @@ void printGadget(struct gadget_t *gadget)
             prettified = NULL;
         }
         putchar(0x0a); // Newline
-        free(gadget);
-        gadget = NULL;
     }
+}
+
+// Generates a key where the number X (addi sp, sp, X) is gone
+static char *updateKey(char *key)
+{
+    size_t index = strlen(key);
+    char *aux = strdup(key);
+    char *last = &aux[index - 1];
+
+    while (*last != 0x20)
+    {
+        last--;
+    }
+
+    memset(last, 0x0, strlen(last));
+    memcpy(last, "ret", 3);
+    return aux;
 }
