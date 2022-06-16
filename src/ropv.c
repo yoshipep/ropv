@@ -25,13 +25,16 @@
 
 static struct argp_option options[] = {
     {"all", 'a', 0, 0, "Show all gadgets. Option selected by default", 0},
-    {"interest", 'i', 0, 0, "Show most interesting gadgets", 0},
-    {"jop", 'j', 0, 0, "Enable JOP gadgets", 0},
+    {"ret", 'r', 0, 0, "Show only RET gadgets", 1},
+    {"jop", 'j', 0, 0, "Show only JOP gadgets", 2},
+    {"sys", 's', 0, 0, "Show only SYSCALL gadgets", 3},
     {0}};
 
 struct arguments args;
 
-static uint8_t mutuallyExclusive = 0;
+static bool genericModeSelected = false;
+
+static bool otherModeSelected = false;
 
 const char *argp_program_version = "ropv v1.0";
 const char *argp_program_bug_address = "comes.josep2@gmail.com";
@@ -45,31 +48,51 @@ static error_t parse_opt(int key, char *arg, struct argp_state *state)
     switch (key)
     {
     case 'a':
-        if (0 == mutuallyExclusive)
+        if (!otherModeSelected)
         {
             arguments->mode = GENERIC_MODE;
-            mutuallyExclusive = 1;
+            genericModeSelected = true;
         }
         else
         {
-            argp_failure(state, 1, 1, "Invalid argument combination. Options -a and -i are mutually exclusive");
+            argp_failure(state, 1, 1, "Invalid argument combination. Options -a and [-r -j -s] are mutually exclusive");
         }
         break;
 
-    case 'i':
-        if (0 == mutuallyExclusive)
+    case 'r':
+        if (!genericModeSelected)
         {
-            arguments->mode = INTEREST_MODE;
-            mutuallyExclusive = 1;
+            arguments->mode = RET_MODE;
+            otherModeSelected = true;
         }
         else
         {
-            argp_failure(state, 1, 1, "Invalid argument combination. Options -a and -i are mutually exclusive");
+            argp_failure(state, 1, 1, "Invalid argument combination. Options -r and -a are mutually exclusive");
+        }
+        break;
+
+    case 's':
+        if (!genericModeSelected)
+        {
+            arguments->mode = SYSCALL_MODE;
+            otherModeSelected = true;
+        }
+        else
+        {
+            argp_failure(state, 1, 1, "Invalid argument combination. Options -s and -a are mutually exclusive");
         }
         break;
 
     case 'j':
-        arguments->options = 1;
+        if (!genericModeSelected)
+        {
+            arguments->mode = JOP_MODE;
+            otherModeSelected = true;
+        }
+        else
+        {
+            argp_failure(state, 1, 1, "Invalid argument combination. Options -j and -a are mutually exclusive");
+        }
         break;
 
     case ARGP_KEY_ARG:

@@ -46,9 +46,9 @@ static __attribute__((always_inline)) inline bool checkArch(Elf32_Half arch);
 
 static __attribute__((always_inline)) inline bool getBits(Elf32_Ehdr *header);
 
-static __attribute__((always_inline)) inline uint8_t pushToPGL(struct ins32_t *instruction);
+static __attribute__((always_inline)) inline uint16_t pushToPGL(struct ins32_t *instruction);
 
-static inline uint8_t pushToPGL(struct ins32_t *instruction)
+static inline uint16_t pushToPGL(struct ins32_t *instruction)
 {
     // Inserts new record in the list and return it's index
     static uint8_t pos = 0;
@@ -196,15 +196,15 @@ fail:
 
 static uint8_t parseContent(char *assemblyFile)
 {
-
     FILE *file;
     char *line, *address, *pos, *opcode;
-    uint8_t nIns, nTabs, last, bytes;
+    uint8_t nTabs, bytes, last;
+    uint16_t offset;
     int32_t baseAddress, endPos;
     ins32_t *current;
     size_t startPos;
     bool start = false, isEnd = false;
-    uint8_t startProcessing = 0, insProcessed = 0;
+    uint8_t startProcessing = 0;
     size_t len = 0;
     ssize_t read = -1;
 
@@ -261,8 +261,7 @@ static uint8_t parseContent(char *assemblyFile)
             baseAddress = strtol(address, NULL, 0x10);
             free(address);
             address = NULL;
-            nIns = 0;
-            insProcessed = 0;
+            offset = 0;
             continue;
         }
 
@@ -300,14 +299,14 @@ static uint8_t parseContent(char *assemblyFile)
             bytes = 0;
             startPos += 1;
             current = (ins32_t *)calloc(1, sizeof(ins32_t));
-            current->address = baseAddress + nIns;
+            current->address = baseAddress + offset;
             current->disassembled = (char *)calloc((endPos - startPos) + 1, sizeof(char));
             strncpy(current->disassembled, &line[startPos], endPos - startPos);
             last = fillData(current);
 
-            if (insProcessed < MAX_LENGTH)
+            if (JMP == current->operation)
             {
-                insProcessed += 1;
+                removeExtraInfo(current);
             }
 
             opcode = strstr(line, "\t") + 1;
@@ -318,34 +317,53 @@ static uint8_t parseContent(char *assemblyFile)
 
             current->isCompressed = (4 == bytes) ? true : false;
 
-            if (JMP == current->operation)
+            switch (args.mode)
             {
-                removeExtraInfo(current);
+            case JOP_MODE:
+                if ((JMP == current->operation) &&
+                    strstr(current->disassembled, "jr"))
+                {
+                    processGadgets(last, current->operation);
+                    start = false;
+                    isEnd = true;
+                }
+                break;
+
+            case SYSCALL_MODE:
+                if (SYSCALL == current->operation)
+                {
+                    processGadgets(last, current->operation);
+                    start = false;
+                    isEnd = true;
+                }
+                break;
+
+            case RET_MODE:
+                if (RET == current->operation)
+                {
+                    processGadgets(last, current->operation);
+                    start = false;
+                    isEnd = true;
+                }
+                break;
+
+            case GENERIC_MODE:
+                if ((RET == current->operation) ||
+                    (SYSCALL == current->operation) ||
+                    ((JMP == current->operation) &&
+                     strstr(current->disassembled, "jr")))
+                {
+                    processGadgets(last, current->operation);
+                    start = false;
+                    isEnd = true;
+                }
+                break;
+
+            default:
+                break;
             }
 
-            if (args.options && (JMP == current->operation) &&
-                strstr(current->disassembled, "jr"))
-            {
-                processGadgets(last, insProcessed, current->operation);
-                start = false;
-                isEnd = true;
-            }
-
-            if (SYSCALL == current->operation)
-            {
-                processGadgets(last, insProcessed, current->operation);
-                start = false;
-                isEnd = true;
-            }
-
-            if (RET == current->operation)
-            {
-                processGadgets(last, insProcessed, current->operation);
-                start = false;
-                isEnd = true;
-            }
-
-            nIns += bytes / 2;
+            offset += bytes / 2;
         }
 
     } while (read);

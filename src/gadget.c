@@ -25,6 +25,8 @@
 #include "datatypes.h"
 #include "gadget.h"
 
+#define MAX_LENGTH_NO_RET 6
+
 static struct node_t *last = NULL;
 
 static struct node_t *lastSp = NULL;
@@ -33,11 +35,11 @@ void printGadget(struct gadget_t *gadget);
 
 static char *prettifyString(char *src);
 
-static void basicFilter(uint8_t lastElement, uint8_t insProcessed, struct gadget_t *gadget);
-
-static void advancedFilter(struct gadget_t *gadget);
+static struct gadget_t *retFilter(uint16_t lastElement);
 
 static struct gadget_t *jopFilter(struct gadget_t *gadget);
+
+static struct gadget_t *noRetFilter(uint16_t lastElement);
 
 static char *generateKey(struct gadget_t *gadget);
 
@@ -47,11 +49,20 @@ static bool checkValidity(struct ins32_t *instruction);
 
 static bool messSp(struct ins32_t *instruction);
 
+static __attribute__((always_inline)) inline bool isLastInstruction(struct ins32_t *instruction);
+
+static inline bool isLastInstruction(struct ins32_t *instruction)
+{
+    return (LOAD == instruction->operation) &&
+           (0 == strcmp(instruction->regDest, "ra"));
+}
+
 static bool checkValidity(struct ins32_t *instruction)
 {
     return (CMP != instruction->operation) && (JMP != instruction->operation) &&
            (BRK != instruction->operation) && (RET != instruction->operation) &&
            (CALL != instruction->operation) &&
+           (SYSCALL != instruction->operation) &&
            (UNSUPORTED != instruction->operation) &&
            (ATOMIC != instruction->operation) && (IO != instruction->operation) &&
            !strstr(instruction->disassembled, "auipc") && !messSp(instruction);
@@ -66,14 +77,16 @@ static bool messSp(struct ins32_t *instruction)
             strstr(instruction->disassembled, "sub\tsp"));
 }
 
-static void basicFilter(uint8_t lastElement, uint8_t insProcessed, struct gadget_t *gadget)
+static struct gadget_t *retFilter(uint16_t lastElement)
 {
-    uint8_t current;
+    uint16_t current;
+    struct gadget_t *gadget = (gadget_t *)calloc(1, sizeof(struct gadget_t));
 
     gadget->instructions[0] = preliminary_gadget_list[lastElement];
     gadget->length = 1;
     current = 0 == lastElement ? 99 : lastElement - gadget->length;
-    while (gadget->length < insProcessed && checkValidity(preliminary_gadget_list[current]))
+    while (gadget->length < MAX_LENGTH && checkValidity(preliminary_gadget_list[current]) &&
+           !isLastInstruction(preliminary_gadget_list[current]))
     {
         gadget->instructions[gadget->length] = preliminary_gadget_list[current];
         gadget->length++;
@@ -89,35 +102,15 @@ static void basicFilter(uint8_t lastElement, uint8_t insProcessed, struct gadget
                 current = 99;
         }
     }
-}
 
-// Filter to obtain gadgets that modify syscall registers
-static void advancedFilter(struct gadget_t *gadget)
-{
-    int8_t i = gadget->length - 1;
-
-    for (; i >= 0; i--)
+    if (isLastInstruction(preliminary_gadget_list[current]))
     {
-        if (('a' == gadget->instructions[i]->regDest[0]) &&
-            ('6' != gadget->instructions[i]->regDest[1]))
-        {
-            return;
-        }
-
-        else
-        {
-            gadget->length -= 1;
-            if (gadget->instructions[i]->isCompressed)
-            {
-                gadget->instructions[i]->address += 2;
-            }
-
-            else
-            {
-                gadget->instructions[i]->address += 4;
-            }
-        }
+        gadget->instructions[gadget->length] = preliminary_gadget_list[current];
+        gadget->length++;
+        return gadget;
     }
+    free(gadget);
+    return NULL;
 }
 
 static struct gadget_t *jopFilter(struct gadget_t *gadget)
@@ -143,29 +136,53 @@ static struct gadget_t *jopFilter(struct gadget_t *gadget)
     return gadget;
 }
 
-void processGadgets(uint8_t lastElement, uint8_t insProcessed, op_t lastOperation)
+static struct gadget_t *noRetFilter(uint16_t lastElement)
+{
+    uint16_t current;
+    struct gadget_t *gadget = (gadget_t *)calloc(1, sizeof(struct gadget_t));
+
+    gadget->instructions[0] = preliminary_gadget_list[lastElement];
+    gadget->length = 1;
+    current = 0 == lastElement ? 99 : lastElement - gadget->length;
+    while (gadget->length < MAX_LENGTH_NO_RET &&
+           checkValidity(preliminary_gadget_list[current]))
+    {
+        gadget->instructions[gadget->length] = preliminary_gadget_list[current];
+        gadget->length++;
+        if (0 == current)
+        {
+            current = 99;
+        }
+
+        else
+        {
+            current--;
+            if (0 == current)
+                current = 99;
+        }
+    }
+    return gadget;
+}
+
+void processGadgets(uint8_t lastElement, op_t lastOperation)
 {
     char *key, *tmp, *newKey;
     uint8_t index;
     struct node_t *found;
-    struct gadget_t *gadget = (gadget_t *)malloc(sizeof(struct gadget_t));
-
-    basicFilter(lastElement, insProcessed, gadget);
+    struct gadget_t *gadget;
 
     switch (lastOperation)
     {
     case RET:
-
-        if (INTEREST_MODE == args.mode)
-        {
-            advancedFilter(gadget);
-        }
+        gadget = retFilter(lastElement);
         break;
-
+    case SYSCALL:
+        gadget = noRetFilter(lastElement);
+        break;
     case JMP:
+        gadget = noRetFilter(lastElement);
         gadget = jopFilter(gadget);
         break;
-
     default:
         break;
     }
@@ -239,7 +256,7 @@ static char *generateKey(struct gadget_t *gadget)
     size_t length;
     char *prettified;
     uint8_t index = 0;
-    char *buf = (char *)calloc(150, sizeof(char));
+    char *buf = (char *)calloc(700, sizeof(char));
 
     for (i = gadget->length - 1; i >= 0; i--)
     {

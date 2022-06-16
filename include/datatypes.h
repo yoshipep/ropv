@@ -27,7 +27,9 @@ typedef uint32_t addr32_t;
 typedef enum
 {
 	GENERIC_MODE,
-	INTEREST_MODE
+	JOP_MODE,
+	RET_MODE,
+	SYSCALL_MODE
 } program_mode_t;
 
 typedef enum

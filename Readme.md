@@ -14,8 +14,9 @@ To build the program execute the Makefile
     Tool for ROP explotation (ELF binaries & RISC-V architecture)
 
         -a, --all                  Show all gadgets. Option selected by default
-        -i, --interest             Show most interesting gadgets
-        -j, --jop                  Enable JOP gadgets
+        -r, --ret                  Show only RET gadgets
+        -j, --jop                  Show only JOP gadgets
+        -s, --sys                  Show only SYSCALL gadgets
         -?, --help                 Give this help list
         --usage                    Give a short usage message
         -V, --version              Print program version
