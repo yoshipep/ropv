@@ -31,8 +31,6 @@ static struct node_t *last = NULL;
 
 static struct node_t *lastSp = NULL;
 
-void printGadget(struct gadget_t *gadget);
-
 static char *prettifyString(char *src);
 
 static struct gadget_t *retFilter(uint16_t lastElement);
