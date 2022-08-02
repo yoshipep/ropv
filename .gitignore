@@ -7,3 +7,5 @@ debug/*
 debug
 release/*
 release
+src/compile_commands.json
+src/.cache/*

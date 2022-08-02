@@ -1,2 +1,4 @@
-hashtable_test
+engine_test
 *.o
+test
+*.s
