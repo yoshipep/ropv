@@ -1,74 +1,55 @@
-#include <stdbool.h>
+#include <capstone/capstone.h>
 #include <elf.h>
+#include <stdbool.h>
 #include <inttypes.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <string.h>
-#include <capstone/capstone.h>
 #include <sys/mman.h>
-#include <unistd.h>
 #include <sys/stat.h>
-
-#define CODE "\x13\x05\x10\x00" // Little endian opcode
+#include <sys/types.h>
+#include <unistd.h>
 
 void checkElf(const char *elfFile);
 
-void read_program_headers(const char *elfFile, Elf32_Ehdr *header, FILE *file);
-
 void dumpCode(FILE *file, Elf32_Phdr *segm, Elf32_Ehdr *header);
+
+int disas(unsigned char *opcode, uint32_t address);
+
+void getOpcode(int opcode, unsigned char *opcode_ptr);
 
 int main(void)
 {
-	csh handle;
-	cs_insn *insn;
-	size_t count;
-
-	checkElf("./test");
-
-	if (cs_open(CS_ARCH_RISCV, CS_MODE_RISCV32 + CS_MODE_RISCVC, &handle) !=
-	    CS_ERR_OK) {
-		return -1;
-	}
-
-	count = cs_disasm(handle, (uint8_t *)CODE, sizeof(CODE) - 1, 0x1000, 0,
-			  &insn);
-	if (count > 0) {
-		size_t j;
-		for (j = 0; j < count; j++) {
-			printf("0x%" PRIx64 ":\t%s\t\t%s\n", insn[j].address,
-			       insn[j].mnemonic, insn[j].op_str);
-		}
-
-		cs_free(insn, count);
-	} else
-		printf("ERROR: Failed to disassemble given code!\n");
-
-	cs_close(&handle);
-
+	// checkElf("/opt/rv32/sysroot/lib/libc.so.6");
+	checkElf("./files/test2");
+	// checkElf("./files/test1");
 	return 0;
 }
 
-static bool checkArch(Elf32_Half arch)
+static bool checkArch(Elf32_Ehdr *header)
 {
 	// Return true if the binary is from the RISC-V arch
-	return arch == 243;
+	return header->e_machine == 243;
 }
 
 static bool getBits(Elf32_Ehdr *header)
 {
 	// If value equals to 2, the binary is from a 64 bits arch
-	return (*header).e_ident[EI_CLASS] == 2 ? true : false;
+	return 2 == header->e_ident[EI_CLASS] ? true : false;
 }
 
 void checkElf(const char *elfFile)
 {
 	Elf32_Ehdr header;
 	FILE *file;
+	Elf32_Phdr program_header;
+	uint8_t i;
 
 	file = fopen(elfFile, "rb");
 
 	if (!file) {
 		fprintf(stderr, "[-] Error while opening the file\n");
+		return;
 	}
 
 	// Read the ELF header
@@ -84,14 +65,14 @@ void checkElf(const char *elfFile)
 	}
 
 	// Check the arch
-	if (!checkArch(header.e_machine)) {
+	if (!checkArch(&header)) {
 		fprintf(stderr, "[-] Bad architecture\n");
 		goto close;
 	}
 
 	// Check the bitness
 	if (getBits(&header)) {
-		fprintf(stderr, "[-] Bitness not suported\n");
+		fprintf(stderr, "[-] Unsuported bitness\n");
 		goto close;
 	}
 
@@ -101,65 +82,103 @@ void checkElf(const char *elfFile)
 		goto close;
 	}
 
-	read_program_headers(elfFile, &header, file);
+	for (i = 0; i < header.e_phnum; i++) {
+		uint32_t offset = header.e_phoff + header.e_phentsize * i;
+		fseek(file, offset, SEEK_SET);
+		fread(&program_header, sizeof(program_header), 1, file);
+		// Miramos si esta program header contiene instrucciones ejecutables
+		if (((PF_X | PF_R) == program_header.p_flags)) {
+			dumpCode(file, &program_header, &header);
+		}
+	}
 
 close:
 	fclose(file);
 }
 
-void read_program_headers(const char *elfFile, Elf32_Ehdr *header, FILE *file)
-{
-	Elf32_Phdr
-		program_header; // Struct que representa la program header table
-	for (uint i = 0; i < header->e_phnum; i++) {
-		uint offset = header->e_phoff + header->e_phentsize * i;
-		fseek(file, offset, SEEK_SET);
-		fread(&program_header, sizeof(program_header), 1, file);
-		// Miramos si esta program header tiene permisos de ejecución
-		if (0x1 & program_header.p_flags) {
-			dumpCode(file, &program_header, header);
-			break;
-		}
-	}
-}
-
 void dumpCode(FILE *file, Elf32_Phdr *segm, Elf32_Ehdr *header)
 {
-	char *fileptr;
+	int32_t *opcode;
+	uint32_t offset, vaddr, i;
+	char *mappedFile;
 	struct stat statbuf;
-	int *ptr;
-	unsigned int i, addr;
+	int fd;
+	bool reachedFirstIns = false;
+	unsigned char *opcode_ptr = (unsigned char *)malloc(sizeof(char) * 4);
 
-	int fd = fileno(file);
+	fd = fileno(file);
 	if (fstat(fd, &statbuf)) {
 		fprintf(stderr, "[-] Error while stating the file!\n");
-		close(fd);
+		goto fail;
 	}
 
-	fileptr =
+	mappedFile =
 		(char *)mmap(0, statbuf.st_size, PROT_READ, MAP_PRIVATE, fd, 0);
 
-	if (MAP_FAILED == fileptr) {
+	if (MAP_FAILED == mappedFile) {
 		fprintf(stderr, "[-] Error mapping the file!\n");
-		close(fd);
+		goto fail;
 	}
 
-	ptr = (int *)(fileptr +
-		      (0 == segm->p_offset ?
-			       sizeof(*header) +
-				       header->e_phnum * header->e_phentsize :
-			       segm->p_offset));
-	printf("%p -> %p\n", fileptr, ptr);
-	addr = (0 == segm->p_offset ?
-			segm->p_vaddr + sizeof(*header) +
-				header->e_phnum * header->e_phentsize :
-			segm->p_vaddr);
+	offset = segm->p_offset;
 
-	for (i = 0; i < segm->p_filesz / 4; i++, ptr++, addr += 4) {
-		printf("Address: 0x%08x\n", addr);
-		printf("Opcode: 0x%08x\n", *ptr);
+	opcode = (int *)(mappedFile + offset);
+
+	vaddr = segm->p_vaddr;
+
+	for (i = 0; i < segm->p_filesz / 4; i++, opcode++, vaddr += 4) {
+		if (!reachedFirstIns && header->e_entry != vaddr) {
+			continue;
+		}
+		reachedFirstIns = true;
+		if (reachedFirstIns) {
+			getOpcode(*opcode, opcode_ptr);
+			if (1 == disas(opcode_ptr, vaddr)) {
+				free(opcode_ptr);
+				break;
+			}
+		}
 	}
 
-	munmap(fileptr, statbuf.st_size);
+fail:
 	close(fd);
+	munmap(mappedFile, statbuf.st_size);
+}
+
+void getOpcode(int opcode, unsigned char *opcode_ptr)
+{
+	opcode_ptr[0] = 0xFF & opcode;
+	opcode_ptr[1] = (0xFF00 & opcode) >> 8;
+	opcode_ptr[2] = (0xFF0000 & opcode) >> 16;
+	opcode_ptr[3] = (0xFF000000 & opcode) >> 24;
+}
+
+int disas(unsigned char *opcode, uint32_t address)
+{
+	static csh handle;
+	cs_insn *insn;
+	size_t count;
+
+	if (cs_open(CS_ARCH_RISCV, CS_MODE_RISCV32, &handle) != CS_ERR_OK) {
+		return 1;
+	}
+
+	count = cs_disasm(handle, opcode, sizeof(opcode) - 1, address, 0,
+			  &insn);
+	if (count > 0) {
+		size_t j;
+		for (j = 0; j < count; j++) {
+			printf("0x%" PRIx64 ":\t%s\t\t%s\n", insn[j].address,
+			       insn[j].mnemonic, insn[j].op_str);
+		}
+		cs_free(insn, count);
+	} else {
+#ifdef DEBUG
+		fprintf(stderr, "ERROR: Failed to disassemble given code!\n");
+#endif
+		return 1;
+	}
+
+	cs_close(&handle);
+	return 0;
 }

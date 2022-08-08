@@ -2,3 +2,4 @@ engine_test
 *.o
 test
 *.s
+./files/*

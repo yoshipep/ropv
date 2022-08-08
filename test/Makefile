@@ -1,5 +1,5 @@
 CC=clang
-CFLAGS=-O0 -Wall -Werror -fno-stack-protector -fno-inline-functions -fno-PIE -ggdb
+CFLAGS=-O0 -Wall -Werror -fno-stack-protector -fno-inline-functions -fno-PIE -ggdb -DDEBUG
 LIBNAME=capstone
 SOURCES=engine_test.c
 OBJS=$(SOURCES:.c=.o)
