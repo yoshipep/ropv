@@ -140,9 +140,9 @@ void dumpCode(FILE *file, Elf32_Phdr *segm, Elf32_Ehdr *header)
 		}
 	}
 
+	munmap(mappedFile, statbuf.st_size);
 fail:
 	close(fd);
-	munmap(mappedFile, statbuf.st_size);
 }
 
 void getOpcode(int opcode, unsigned char *opcode_ptr)
