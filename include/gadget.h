@@ -26,10 +26,9 @@
 #include "datatypes.h"
 #include "node.h"
 
-typedef struct gadget_t
-{
-    ins32_t *instructions[MAX_LENGTH];
-    uint8_t length;
+typedef struct gadget_t {
+  ins32_t *instructions[MAX_LENGTH];
+  uint8_t length;
 } gadget_t;
 
 extern struct arguments args;
@@ -38,7 +37,7 @@ extern ins32_t *preliminary_gadget_list[100];
 
 extern struct node_t *list;
 
-struct node_t *spDuplicated;
+extern struct node_t *spDuplicated;
 
 void processGadgets(uint8_t lastElement, op_t lastOperation);
 
