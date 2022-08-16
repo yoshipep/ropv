@@ -4,7 +4,7 @@ _ropv_ is a Return Oriented Programming (ROP) gadget finder for RISC-V binaries.
 
 ## Installation
 
-First you will need the RISC-V toolchain, available through this [link](https://github.com/riscv-collab/riscv-gnu-toolchain). You can also find it in this repo.
+First you will need the Capstone Engine, available through this [link](https://github.com/capstone-engine/capstone). You can also find it in this repo.
 
 To build the program execute the Makefile
 

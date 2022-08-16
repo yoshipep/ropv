@@ -10,26 +10,28 @@
 #include <sys/types.h>
 #include <unistd.h>
 
+static csh handle;
+
 void checkElf(const char *elfFile);
 
-void dumpCode(FILE *file, Elf32_Phdr *segm, Elf32_Ehdr *header);
+static void dumpCode(FILE *file, Elf32_Phdr *segm, Elf32_Ehdr *header);
 
-int disas(unsigned char *opcode, uint32_t address);
+static int disas(unsigned char *opcode, uint32_t address);
 
-void getOpcode(int opcode, unsigned char *opcode_ptr);
+static void getOpcode(int opcode, unsigned char *opcode_ptr);
 
 int main(void)
 {
 	// checkElf("/opt/rv32/sysroot/lib/libc.so.6");
-	checkElf("./files/test2");
-	// checkElf("./files/test1");
+	// checkElf("./files/test2");
+	checkElf("./files/test1");
 	return 0;
 }
 
 static bool checkArch(Elf32_Ehdr *header)
 {
 	// Return true if the binary is from the RISC-V arch
-	return header->e_machine == 243;
+	return 243 == header->e_machine;
 }
 
 static bool getBits(Elf32_Ehdr *header)
@@ -48,37 +50,49 @@ void checkElf(const char *elfFile)
 	file = fopen(elfFile, "rb");
 
 	if (!file) {
-		fprintf(stderr, "[-] Error while opening the file\n");
+		fprintf(stderr, "[-] Error while opening the file!\n");
 		return;
 	}
 
 	// Read the ELF header
 	if (!fread(&header, sizeof(header), 1, file)) {
-		fprintf(stderr, "[-] Error while reading the ELF file\n");
+		fprintf(stderr, "[-] Error while reading the ELF file!\n");
 		goto close;
 	}
 
 	// Check so its really an elf file
-	if ((!memcmp(header.e_ident, ELFMAG, SELFMAG)) == 0) {
-		fprintf(stderr, "[-] Not an ELF file\n");
+	if (0 == (!memcmp(header.e_ident, ELFMAG, SELFMAG))) {
+		fprintf(stderr, "[-] Not an ELF file!\n");
 		goto close;
 	}
 
 	// Check the arch
 	if (!checkArch(&header)) {
-		fprintf(stderr, "[-] Bad architecture\n");
+		fprintf(stderr, "[-] Bad architecture!\n");
 		goto close;
 	}
 
 	// Check the bitness
 	if (getBits(&header)) {
-		fprintf(stderr, "[-] Unsuported bitness\n");
-		goto close;
+		if (CS_ERR_OK !=
+		    cs_open(CS_ARCH_RISCV, CS_MODE_RISCV64, &handle)) {
+			fprintf(stderr,
+				"[-] Error starting capstone engine!\n");
+			goto close;
+		}
+
+	} else {
+		if (CS_ERR_OK !=
+		    cs_open(CS_ARCH_RISCV, CS_MODE_RISCV32, &handle)) {
+			fprintf(stderr,
+				"[-] Error starting capstone engine!\n");
+			goto close;
+		}
 	}
 
-	// Check if the program has any program header
+	// Check if the file has any program header
 	if (!header.e_phnum) {
-		fprintf(stderr, "[-] Invalid ELF file\n");
+		fprintf(stderr, "[-] Invalid ELF file!\n");
 		goto close;
 	}
 
@@ -96,14 +110,13 @@ close:
 	fclose(file);
 }
 
-void dumpCode(FILE *file, Elf32_Phdr *segm, Elf32_Ehdr *header)
+static void dumpCode(FILE *file, Elf32_Phdr *segm, Elf32_Ehdr *header)
 {
 	int32_t *opcode;
 	uint32_t offset, vaddr, i;
 	char *mappedFile;
 	struct stat statbuf;
 	int fd;
-	bool reachedFirstIns = false;
 	unsigned char *opcode_ptr = (unsigned char *)malloc(sizeof(char) * 4);
 
 	fd = fileno(file);
@@ -114,38 +127,41 @@ void dumpCode(FILE *file, Elf32_Phdr *segm, Elf32_Ehdr *header)
 
 	mappedFile =
 		(char *)mmap(0, statbuf.st_size, PROT_READ, MAP_PRIVATE, fd, 0);
-
 	if (MAP_FAILED == mappedFile) {
 		fprintf(stderr, "[-] Error mapping the file!\n");
 		goto fail;
 	}
 
 	offset = segm->p_offset;
-
 	opcode = (int *)(mappedFile + offset);
-
 	vaddr = segm->p_vaddr;
+	i = 0;
 
-	for (i = 0; i < segm->p_filesz / 4; i++, opcode++, vaddr += 4) {
-		if (!reachedFirstIns && header->e_entry != vaddr) {
-			continue;
-		}
-		reachedFirstIns = true;
-		if (reachedFirstIns) {
-			getOpcode(*opcode, opcode_ptr);
-			if (1 == disas(opcode_ptr, vaddr)) {
-				free(opcode_ptr);
-				break;
-			}
+	/*Caso de que el segmento empiece en el offset 0*/
+	if (0 == offset) {
+		while (header->e_entry != vaddr) {
+			i++;
+			vaddr += 4;
+			opcode++;
 		}
 	}
 
+	for (; i < segm->p_filesz / 4; i++, vaddr += 4) {
+		getOpcode(*opcode++, opcode_ptr);
+		if (1 == disas(opcode_ptr, vaddr)) {
+			free(opcode_ptr);
+			break;
+		}
+	}
+
+	cs_close(&handle);
 	munmap(mappedFile, statbuf.st_size);
+
 fail:
 	close(fd);
 }
 
-void getOpcode(int opcode, unsigned char *opcode_ptr)
+static void getOpcode(int opcode, unsigned char *opcode_ptr)
 {
 	opcode_ptr[0] = 0xFF & opcode;
 	opcode_ptr[1] = (0xFF00 & opcode) >> 8;
@@ -153,15 +169,10 @@ void getOpcode(int opcode, unsigned char *opcode_ptr)
 	opcode_ptr[3] = (0xFF000000 & opcode) >> 24;
 }
 
-int disas(unsigned char *opcode, uint32_t address)
+static int disas(unsigned char *opcode, uint32_t address)
 {
-	static csh handle;
 	cs_insn *insn;
 	size_t count;
-
-	if (cs_open(CS_ARCH_RISCV, CS_MODE_RISCV32, &handle) != CS_ERR_OK) {
-		return 1;
-	}
 
 	count = cs_disasm(handle, opcode, sizeof(opcode) - 1, address, 0,
 			  &insn);
@@ -178,7 +189,5 @@ int disas(unsigned char *opcode, uint32_t address)
 #endif
 		return 1;
 	}
-
-	cs_close(&handle);
 	return 0;
 }
