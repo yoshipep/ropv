@@ -1,5 +1,6 @@
 CC=clang
-CFLAGS=-O0 -Wall -Werror -fno-stack-protector -fno-inline-functions -fno-PIE -ggdb -DDEBUG
+CFLAGS=-O0 -std=c17 -Wall -Wextra -fno-stack-protector -fno-inline-functions -ggdb -D_POSIX_SOURCE
+LFLAGS=-l$(LIBNAME) -fno-PIE
 LIBNAME=capstone
 SOURCES=engine_test.c
 OBJS=$(SOURCES:.c=.o)
@@ -9,7 +10,7 @@ OBJS=$(SOURCES:.c=.o)
 #$< = Expansion de uno de los objetos que hay a la derecha de los dos puntos
 
 engine_test: $(OBJS)
-	$(CC) $^ $(INCLUDE) -l$(LIBNAME) $(CFLAGS) -o $@
+	$(CC) $^ $(INCLUDE) $(LFLAGS) -o $@
 
 %.o: %.c
 	$(CC) -c $< $(INCLUDE) $(CFLAGS) -o $@

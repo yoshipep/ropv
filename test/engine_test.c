@@ -1,9 +1,10 @@
 #include <capstone/capstone.h>
 #include <elf.h>
-#include <stdbool.h>
 #include <inttypes.h>
+#include <stdbool.h>
 #include <stdint.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 #include <sys/mman.h>
 #include <sys/stat.h>
@@ -12,19 +13,30 @@
 
 static csh handle;
 
+struct mappedFile {
+	char *address;
+	off_t size;
+};
+
 void checkElf(const char *elfFile);
 
-static void dumpCode(FILE *file, Elf32_Phdr *segm, Elf32_Ehdr *header);
+static void dumpCode(Elf32_Shdr *sect, char *mappedFile);
 
 static int disas(unsigned char *opcode, uint32_t address);
 
 static void getOpcode(int opcode, unsigned char *opcode_ptr);
 
+static struct mappedFile *mapFile(FILE *file);
+
+static __attribute__((always_inline)) inline void
+unmapFile(struct mappedFile *file);
+
 int main(void)
 {
-	// checkElf("/opt/rv32/sysroot/lib/libc.so.6");
+	checkElf("/opt/rv32/sysroot/lib/libc.so.6");
 	// checkElf("./files/test2");
-	checkElf("./files/test1");
+	// checkElf("./files/test1");
+	// checkElf("./files/test3");
 	return 0;
 }
 
@@ -37,15 +49,17 @@ static bool checkArch(Elf32_Ehdr *header)
 static bool getBits(Elf32_Ehdr *header)
 {
 	// If value equals to 2, the binary is from a 64 bits arch
-	return 2 == header->e_ident[EI_CLASS] ? true : false;
+	return 2 == header->e_ident[EI_CLASS];
 }
 
 void checkElf(const char *elfFile)
 {
 	Elf32_Ehdr header;
 	FILE *file;
-	Elf32_Phdr program_header;
+	Elf32_Shdr sh;
 	uint8_t i;
+	struct mappedFile *mf;
+	uint32_t offset;
 
 	file = fopen(elfFile, "rb");
 
@@ -94,71 +108,75 @@ void checkElf(const char *elfFile)
 	if (!header.e_phnum) {
 		fprintf(stderr, "[-] Invalid ELF file!\n");
 		goto close;
-	}
-
-	for (i = 0; i < header.e_phnum; i++) {
-		uint32_t offset = header.e_phoff + header.e_phentsize * i;
-		fseek(file, offset, SEEK_SET);
-		fread(&program_header, sizeof(program_header), 1, file);
-		// Miramos si esta program header contiene instrucciones ejecutables
-		if (((PF_X | PF_R) == program_header.p_flags)) {
-			dumpCode(file, &program_header, &header);
+	} else {
+		mf = mapFile(file);
+		if (NULL == mf) {
+			goto close;
+		}
+		for (i = 0; i < header.e_shnum; i++) {
+			offset = header.e_shoff + header.e_shentsize * i;
+			fseek(file, offset, SEEK_SET);
+			fread(&sh, sizeof(sh), 1, file);
+			if ((SHT_PROGBITS == sh.sh_type) &&
+			    ((SHF_ALLOC | SHF_EXECINSTR) == sh.sh_flags)) {
+				dumpCode(&sh, mf->address);
+			}
 		}
 	}
+	unmapFile(mf);
 
 close:
 	fclose(file);
+	cs_close(&handle);
 }
 
-static void dumpCode(FILE *file, Elf32_Phdr *segm, Elf32_Ehdr *header)
+static struct mappedFile *mapFile(FILE *file)
 {
-	int32_t *opcode;
-	uint32_t offset, vaddr, i;
-	char *mappedFile;
+	uint8_t fd;
 	struct stat statbuf;
-	int fd;
-	unsigned char *opcode_ptr = (unsigned char *)malloc(sizeof(char) * 4);
+	struct mappedFile *res =
+		(struct mappedFile *)calloc(1, sizeof(struct mappedFile));
 
 	fd = fileno(file);
 	if (fstat(fd, &statbuf)) {
 		fprintf(stderr, "[-] Error while stating the file!\n");
-		goto fail;
+		goto error;
 	}
-
-	mappedFile =
+	res->size = statbuf.st_size;
+	res->address =
 		(char *)mmap(0, statbuf.st_size, PROT_READ, MAP_PRIVATE, fd, 0);
-	if (MAP_FAILED == mappedFile) {
+	if (MAP_FAILED == res->address) {
 		fprintf(stderr, "[-] Error mapping the file!\n");
-		goto fail;
+		goto error;
 	}
 
-	offset = segm->p_offset;
-	opcode = (int *)(mappedFile + offset);
-	vaddr = segm->p_vaddr;
+	return res;
+error:
+	return NULL;
+}
+
+static inline void unmapFile(struct mappedFile *file)
+{
+	munmap(file->address, file->size);
+}
+
+static void dumpCode(Elf32_Shdr *sect, char *mappedFile)
+{
+	int32_t *opcode;
+	uint32_t vaddr, i;
+	unsigned char *opcode_ptr = (unsigned char *)malloc(sizeof(char) * 5);
+
+	opcode = (int *)(mappedFile + sect->sh_offset);
+	vaddr = sect->sh_addr;
 	i = 0;
 
-	/*Caso de que el segmento empiece en el offset 0*/
-	if (0 == offset) {
-		while (header->e_entry != vaddr) {
-			i++;
-			vaddr += 4;
-			opcode++;
-		}
-	}
-
-	for (; i < segm->p_filesz / 4; i++, vaddr += 4) {
-		getOpcode(*opcode++, opcode_ptr);
+	for (; i < sect->sh_size / 4; i++, vaddr += 4, opcode++) {
+		getOpcode(*opcode, opcode_ptr);
 		if (1 == disas(opcode_ptr, vaddr)) {
 			free(opcode_ptr);
 			break;
 		}
 	}
-
-	cs_close(&handle);
-	munmap(mappedFile, statbuf.st_size);
-
-fail:
-	close(fd);
 }
 
 static void getOpcode(int opcode, unsigned char *opcode_ptr)
@@ -167,6 +185,7 @@ static void getOpcode(int opcode, unsigned char *opcode_ptr)
 	opcode_ptr[1] = (0xFF00 & opcode) >> 8;
 	opcode_ptr[2] = (0xFF0000 & opcode) >> 16;
 	opcode_ptr[3] = (0xFF000000 & opcode) >> 24;
+	opcode_ptr[4] = 0x0;
 }
 
 static int disas(unsigned char *opcode, uint32_t address)
@@ -184,9 +203,7 @@ static int disas(unsigned char *opcode, uint32_t address)
 		}
 		cs_free(insn, count);
 	} else {
-#ifdef DEBUG
 		fprintf(stderr, "ERROR: Failed to disassemble given code!\n");
-#endif
 		return 1;
 	}
 	return 0;

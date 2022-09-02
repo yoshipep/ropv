@@ -3,3 +3,4 @@ engine_test
 test
 *.s
 ./files/*
+./.cache/*
