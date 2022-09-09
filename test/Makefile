@@ -1,5 +1,5 @@
 CC=clang
-CFLAGS=-O0 -std=c17 -Wall -Wextra -fno-stack-protector -fno-inline-functions -ggdb -D_POSIX_SOURCE
+CFLAGS=-O0 -std=c17 -Wall -Wextra -fno-inline-functions -ggdb -D_POSIX_SOURCE
 LFLAGS=-l$(LIBNAME) -fno-PIE
 LIBNAME=capstone
 SOURCES=engine_test.c

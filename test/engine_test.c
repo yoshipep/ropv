@@ -24,7 +24,7 @@ static void dumpCode(Elf32_Shdr *sect, char *mappedFile);
 
 static int disas(unsigned char *opcode, uint32_t address);
 
-static void getOpcode(int opcode, unsigned char *opcode_ptr);
+static inline void getOpcode(int opcode, unsigned char *opcode_ptr);
 
 static struct mappedFile *mapFile(FILE *file);
 
@@ -33,10 +33,10 @@ unmapFile(struct mappedFile *file);
 
 int main(void)
 {
-	checkElf("/opt/rv32/sysroot/lib/libc.so.6");
-	// checkElf("./files/test2");
 	// checkElf("./files/test1");
+	checkElf("./files/test2");
 	// checkElf("./files/test3");
+	// checkElf("/opt/rv32/sysroot/lib/libc.so.6");
 	return 0;
 }
 
@@ -103,6 +103,8 @@ void checkElf(const char *elfFile)
 			goto close;
 		}
 	}
+
+	cs_option(handle, CS_OPT_DETAIL, CS_OPT_ON);
 
 	// Check if the file has any program header
 	if (!header.e_phnum) {
@@ -179,7 +181,7 @@ static void dumpCode(Elf32_Shdr *sect, char *mappedFile)
 	}
 }
 
-static void getOpcode(int opcode, unsigned char *opcode_ptr)
+static inline void getOpcode(int opcode, unsigned char *opcode_ptr)
 {
 	opcode_ptr[0] = 0xFF & opcode;
 	opcode_ptr[1] = (0xFF00 & opcode) >> 8;
@@ -197,10 +199,81 @@ static int disas(unsigned char *opcode, uint32_t address)
 			  &insn);
 	if (count > 0) {
 		size_t j;
+		int n;
 		for (j = 0; j < count; j++) {
-			printf("0x%" PRIx64 ":\t%s\t\t%s\n", insn[j].address,
-			       insn[j].mnemonic, insn[j].op_str);
+			cs_insn *i = &(insn[j]);
+			printf("0x%" PRIx64 ":\t%s\t\t%s // insn-mnem: %s\n",
+			       i->address, i->mnemonic, i->op_str,
+			       cs_insn_name(handle, i->id));
+
+			cs_detail *detail = i->detail;
+			if (detail->regs_read_count > 0) {
+				printf("\tImplicit registers read: ");
+				for (n = 0; n < detail->regs_read_count; n++) {
+					printf("%s ",
+					       cs_reg_name(
+						       handle,
+						       detail->regs_read[n]));
+				}
+				printf("\n");
+			}
 		}
+
+		// assume "insn"is a pointer variable to structure cs_insn
+		cs_detail *detail = insn->detail;
+		if (detail->riscv.op_count)
+			printf("\tNumber of operands: %u\n",
+			       detail->arm64.op_count);
+
+		for (n = 0; n < detail->riscv.op_count; n++) {
+			cs_riscv_op *op = &(detail->riscv.operands[n]);
+			switch (op->type) {
+			case RISCV_OP_REG:
+				printf("\t\toperands[%u].type: REG = %s\n", n,
+				       cs_reg_name(handle, op->reg));
+				break;
+			case ARM64_OP_IMM:
+				printf("\t\toperands[%u].type: IMM = 0x%lx\n",
+				       n, op->imm);
+				break;
+			case RISCV_OP_MEM:
+				printf("\t\toperands[%u].type: MEM\n", n);
+				if (op->mem.base != ARM64_REG_INVALID)
+					printf("\t\t\toperands[%u].mem.base: REG = %s\n",
+					       n,
+					       cs_reg_name(handle,
+							   op->mem.base));
+				/*if (op->mem.index != RISCV_REG_INVALID)
+					printf("\t\t\toperands[%u].mem.index: REG = %s\n",
+					       n,
+					       cs_reg_name(handle,
+							   op->mem.index));*/
+				if (op->mem.disp != 0)
+					printf("\t\t\toperands[%u].mem.disp: 0x%lx\n",
+					       n, op->mem.disp);
+				break;
+			default:
+				break;
+			}
+
+			/*if (op->shift.type != RISCV_SFT_INVALID &&
+			    op->shift.value)
+				printf("\t\t\tShift: type = %u, value = %u\n",
+				       op->shift.type, op->shift.value);
+
+			if (op->ext != RISCV_EXT_INVALID)
+				printf("\t\t\tExt: %u\n", op->ext);*/
+		}
+
+		if (detail->arm64.cc != ARM64_CC_INVALID)
+			printf("\tCode condition: %u\n", detail->arm64.cc);
+
+		if (detail->arm64.update_flags)
+			printf("\tUpdate-flags: True\n");
+
+		if (detail->arm64.writeback)
+			printf("\tWrite-back: True\n");
+
 		cs_free(insn, count);
 	} else {
 		fprintf(stderr, "ERROR: Failed to disassemble given code!\n");
