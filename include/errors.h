@@ -20,13 +20,10 @@
 #define _ERRORS_H 1
 
 #define EBARCH 0X1
-#define EINV 0X2
-#define EBIT 0X3
-#define EIFILE 0X4
-#define ERED 0X5
-#define EIO 0X6
-#define ECHILD 0X7
-#define ECREAT 0X8
-#define EOPEN 0x9
+#define ENOELF 0x2
+#define EIO 0X3
+#define EOPEN 0x4
+#define EINVFILE 0X5
+#define EIINS 0x6
 
 #endif

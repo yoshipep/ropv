@@ -1,0 +1,70 @@
+[
+  {
+    "arguments": [
+      "/usr/bin/clang",
+      "-c",
+      "-I",
+      "./include",
+      "-O2",
+      "-D_FORTIFY_SOURCE=2",
+      "-fstack-protector",
+      "-o",
+      "src/ropv.o",
+      "src/ropv.c"
+    ],
+    "directory": "/home/jose/Desktop/ropv",
+    "file": "/home/jose/Desktop/ropv/src/ropv.c",
+    "output": "/home/jose/Desktop/ropv/src/ropv.o"
+  },
+  {
+    "arguments": [
+      "/usr/bin/clang",
+      "-c",
+      "-I",
+      "./include",
+      "-O2",
+      "-D_FORTIFY_SOURCE=2",
+      "-fstack-protector",
+      "-o",
+      "src/disas.o",
+      "src/disas.c"
+    ],
+    "directory": "/home/jose/Desktop/ropv",
+    "file": "/home/jose/Desktop/ropv/src/disas.c",
+    "output": "/home/jose/Desktop/ropv/src/disas.o"
+  },
+  {
+    "arguments": [
+      "/usr/bin/clang",
+      "-c",
+      "-I",
+      "./include",
+      "-O2",
+      "-D_FORTIFY_SOURCE=2",
+      "-fstack-protector",
+      "-o",
+      "src/gadget.o",
+      "src/gadget.c"
+    ],
+    "directory": "/home/jose/Desktop/ropv",
+    "file": "/home/jose/Desktop/ropv/src/gadget.c",
+    "output": "/home/jose/Desktop/ropv/src/gadget.o"
+  },
+  {
+    "arguments": [
+      "/usr/bin/clang",
+      "-c",
+      "-I",
+      "./include",
+      "-O2",
+      "-D_FORTIFY_SOURCE=2",
+      "-fstack-protector",
+      "-o",
+      "src/node.o",
+      "src/node.c"
+    ],
+    "directory": "/home/jose/Desktop/ropv",
+    "file": "/home/jose/Desktop/ropv/src/node.c",
+    "output": "/home/jose/Desktop/ropv/src/node.o"
+  }
+]

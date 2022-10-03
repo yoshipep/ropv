@@ -16,99 +16,78 @@
  *  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
+#include "gadget.h"
 #include "node.h"
 
-struct node_t *create()
+struct gadget_t *del(struct node_t *list, const char *key)
 {
-    struct node_t *list = (node_t *)calloc(1, sizeof(struct node_t));
-    return list;
-}
+	if (NULL == list) {
+		return NULL;
+	}
 
-struct node_t *insert(struct node_t *list, struct gadget_t *data, const char *key)
-{
-    list->key = strdup(key);
-    list->data = data;
-    list->next = create();
-    return list->next;
-}
+	struct gadget_t *res;
+	struct node_t *head = list, *last = NULL;
+	while ((NULL != head->data) && (0 != strcmp(head->key, key))) {
+		last = head;
+		head = head->next;
+	}
 
-void update(struct node_t *node, struct gadget_t *data, const char *key)
-{
-    node->key = key;
-    node->data = data;
+	if (NULL == last) {
+		res = head->data;
+		list = list->next;
+		free(head);
+		head = NULL;
+		return res;
+	}
+
+	if ((NULL == head->data) && (0 == strcmp(last->key, key))) {
+		free(head);
+		head = NULL;
+		return last->data;
+	} else if (NULL == head->data) {
+		return NULL;
+	}
+
+	res = head->data;
+	last->next = head->next;
+	free(head);
+	head = NULL;
+	return res;
 }
 
 struct node_t *find(struct node_t *list, const char *key)
 {
-    if (NULL == list)
-    {
-        return NULL;
-    }
+	if (NULL == list) {
+		return NULL;
+	}
 
-    struct node_t *head = list;
-    while (NULL != head->data)
-    {
-        if (0 == strcmp(head->key, key))
-        {
-            return head;
-        }
-        head = head->next;
-    }
-    return NULL;
+	struct node_t *head = list;
+	while (NULL != head->data) {
+		if (0 == strcmp(head->key, key)) {
+			return head;
+		}
+		head = head->next;
+	}
+	return NULL;
+}
+
+struct node_t *insert(struct node_t *list, struct gadget_t *data,
+		      const char *key)
+{
+	list->key = strdup(key);
+	list->data = data;
+	list->next = create();
+	return list->next;
 }
 
 void printContent(struct node_t *list)
 {
-    if (NULL == list)
-    {
-        return;
-    }
-    struct node_t *head = list;
-    while (NULL != head->data)
-    {
-        printGadget(head->data);
-        head = head->next;
-    }
-}
-
-struct gadget_t *delete(struct node_t *list, const char *key)
-{
-    if (NULL == list)
-    {
-        return NULL;
-    }
-
-    struct gadget_t *res;
-    struct node_t *head = list, *last = NULL;
-    while ((NULL != head->data) && (0 != strcmp(head->key, key)))
-    {
-        last = head;
-        head = head->next;
-    }
-
-    if (NULL == last)
-    {
-        res = head->data;
-        list = list->next;
-        free(head);
-        head = NULL;
-        return res;
-    }
-
-    if ((NULL == head->data) && (0 == strcmp(last->key, key)))
-    {
-        free(head);
-        head = NULL;
-        return last->data;
-    }
-    else if (NULL == head->data)
-    {
-        return NULL;
-    }
-
-    res = head->data;
-    last->next = head->next;
-    free(head);
-    head = NULL;
-    return res;
+	if (NULL == list) {
+		return;
+	}
+	struct node_t *head = list;
+	while (NULL != head->data) {
+		printGadget(head->data);
+		head = head->next;
+	}
 }

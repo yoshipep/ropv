@@ -17,14 +17,12 @@
  */
 
 #ifndef _NODE_H
-#define _NODE_H 1
+#define _NODE_H
 
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdlib.h>
 #include <string.h>
-
-#include "gadget.h"
 
 typedef struct node_t
 {
@@ -33,18 +31,30 @@ typedef struct node_t
 	struct node_t *next;
 } node_t;
 
-struct node_t *create();
+extern struct instruction *preliminary_gadget_list[100];
 
-struct node_t *insert(struct node_t *list, struct gadget_t *data, const char *key);
+extern struct node_t *list;
 
-void update(struct node_t *node, struct gadget_t *data, const char *key);
+extern struct node_t *spDuplicated;
 
-struct gadget_t *delete(struct node_t *list, const char *key);
+inline struct node_t *create()
+{
+	struct node_t *list = (struct node_t *)calloc(1, sizeof(struct node_t));
+	return list;
+}
+
+struct gadget_t *del(struct node_t *list, const char *key);
 
 struct node_t *find(struct node_t *list, const char *key);
 
+struct node_t *insert(struct node_t *list, struct gadget_t *data, const char *key);
+
 void printContent(struct node_t *list);
 
-void destroy(struct node_t *list);
+void inline update(struct node_t *node, struct gadget_t *data, const char *key)
+{
+	node->key = key;
+	node->data = data;
+}
 
 #endif

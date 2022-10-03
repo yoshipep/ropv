@@ -17,31 +17,31 @@
  */
 
 #ifndef _GADGET_H
-#define _GADGET_H 1
+#define _GADGET_H
 
 #define MAX_LENGTH 30
 
 #include <stdint.h>
+#include <string.h>
 
-#include "datatypes.h"
-#include "node.h"
+#include "instructions.h"
 
 typedef struct gadget_t
 {
-    ins32_t *instructions[MAX_LENGTH];
+    struct instruction *instructions[MAX_LENGTH];
     uint8_t length;
 } gadget_t;
 
 extern struct arguments args;
 
-extern ins32_t *preliminary_gadget_list[100];
-
-extern struct node_t *list;
-
-struct node_t *spDuplicated;
-
-void processGadgets(uint8_t lastElement, op_t lastOperation);
+static inline bool isLastInstruction(struct instruction *instruction)
+{
+	return (LOAD == instruction->operation) &&
+	       (0 == strcmp(instruction->regDest, "ra"));
+}
 
 void printGadget(struct gadget_t *gadget);
+
+void processGadgets(uint8_t lastElement, op_t lastOperation);
 
 #endif

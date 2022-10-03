@@ -16,13 +16,10 @@
  *  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
-#ifndef _DATATYPES_H
-#define _DATATYPES_H 1
+#ifndef _ROPV_H
+#define _ROPV_H
 
-#include <stdbool.h>
 #include <stdint.h>
-
-typedef uint32_t addr32_t;
 
 typedef enum
 {
@@ -32,33 +29,6 @@ typedef enum
 	SYSCALL_MODE
 } program_mode_t;
 
-typedef enum
-{
-	LOAD,
-	STORE,
-	CMP,
-	JMP,
-	ADD,
-	OR,
-	AND,
-	SHIFT,
-	SUB,
-	SET,
-	NOP,
-	MOV,
-	CALL,
-	SYSCALL,
-	BRK,
-	NOT,
-	NEG,
-	RET,
-	ATOMIC,
-	IO,
-	MUL,
-	DIV,
-	UNSUPORTED
-} op_t;
-
 struct arguments
 {
 	char *file;
@@ -66,17 +36,5 @@ struct arguments
 	uint8_t arg_num;
 	uint8_t options;
 };
-
-typedef struct ins32_t
-{
-	addr32_t address;
-	int16_t immediate;
-	bool useImmediate;
-	bool isCompressed;
-	op_t operation;
-	char *disassembled;
-	char regToShift[3];
-	char regDest[3];
-} ins32_t;
 
 #endif

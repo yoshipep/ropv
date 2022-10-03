@@ -16,43 +16,57 @@
  *  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
-#ifndef _DISAS_H
-#define _DISAS_H
+#ifndef _INSTRUCTIONS_H
+#define _INSTRUCTIONS_H
 
-#include <elf.h>
 #include <stdbool.h>
 #include <stdint.h>
-#include <sys/mman.h>
-#include <sys/types.h>
 
-struct mappedBin {
-	char *address;
-	off_t size;
-};
+typedef uint32_t addr32_t;
+typedef uint64_t addr64_t;
 
-extern struct instruction *preliminary_gadget_list[100];
-
-extern struct node_t *list;
-
-extern struct node_t *spDuplicated;
-
-static __attribute__((always_inline)) inline bool checkArch(Elf32_Ehdr *header)
+typedef enum
 {
-	// Return true if the binary is from the RISC-V arch
-	return 243 == header->e_machine;
-}
+	LOAD,
+	STORE,
+	CMP,
+	JMP,
+	ADD,
+	OR,
+	AND,
+	SHIFT,
+	SUB,
+	SET,
+	NOP,
+	MOV,
+	CALL,
+	SYSCALL,
+	BRK,
+	NOT,
+	NEG,
+	RET,
+	ATOMIC,
+	IO,
+	MUL,
+	DIV,
+	UNSUPORTED
+} op_t;
 
-static __attribute__((always_inline)) inline bool getBits(Elf32_Ehdr *header)
+typedef union address {
+		addr32_t addr32;
+		addr64_t addr64;
+	} address;
+
+typedef struct instruction
 {
-	// If value equals to 2, the binary is from a 64 bits arch
-	return 2 == header->e_ident[EI_CLASS];
-}
-
-uint8_t process_elf(char *elfFile);
-
-static __attribute__((always_inline)) inline void
-unmapFile(struct mappedBin *file) {
-	munmap(file->address, file->size);
-}
+	union address addr;
+	int16_t immediate;
+	bool useImmediate;
+	bool useShift;
+	op_t operation;
+	const char *disassembled;
+	const char *regToShift;
+	const char *regDest;
+} instruction;
 
 #endif
