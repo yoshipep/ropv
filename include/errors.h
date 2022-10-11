@@ -24,6 +24,7 @@
 #define EIO 0X3
 #define EOPEN 0x4
 #define EINVFILE 0X5
-#define EIINS 0x6
+#define EOPENC 0X6
+#define EIINS 0x7
 
 #endif

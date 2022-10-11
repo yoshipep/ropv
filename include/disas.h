@@ -36,18 +36,6 @@ extern struct node_t *list;
 
 extern struct node_t *spDuplicated;
 
-static __attribute__((always_inline)) inline bool checkArch(Elf32_Ehdr *header)
-{
-	// Return true if the binary is from the RISC-V arch
-	return 243 == header->e_machine;
-}
-
-static __attribute__((always_inline)) inline bool getBits(Elf32_Ehdr *header)
-{
-	// If value equals to 2, the binary is from a 64 bits arch
-	return 2 == header->e_ident[EI_CLASS];
-}
-
 uint8_t process_elf(char *elfFile);
 
 static __attribute__((always_inline)) inline void

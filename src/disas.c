@@ -40,11 +40,15 @@ static csh handle;
 
 static bool is64Bit;
 
+static __attribute__((always_inline)) inline bool checkArch(Elf32_Ehdr *header);
+
 static int disas(unsigned char *opcode, uint64_t address);
 
 static int dumpCode(Elf32_Shdr *sect, char *mappedBin);
 
 static uint8_t fillData(struct instruction *instruction, cs_detail *detail);
+
+static __attribute__((always_inline)) inline bool getBits(Elf32_Ehdr *header);
 
 static void getOpcode(int opcode, unsigned char *opcode_ptr);
 
@@ -92,22 +96,35 @@ uint8_t process_elf(char *elfFile)
 
 	// Check the bitness
 	if (getBits(&header)) {
-		if (CS_ERR_OK !=
-		    cs_open(CS_ARCH_RISCV, CS_MODE_RISCV64, &handle)) {
-			fprintf(stderr,
-				"[-] Error starting capstone engine!\n");
-			goto close;
+		// Check if the binary uses compressed instructions
+		if (0x1 == header.e_flags) {
+			if (CS_ERR_OK !=
+			    cs_open(CS_ARCH_RISCV,
+				    CS_MODE_RISCV32 + CS_MODE_RISCVC,
+				    &handle)) {
+				fprintf(stderr,
+					"[-] Error starting capstone engine!\n");
+				res = EOPENC;
+				goto close;
+			}
+		} else {
+			if (CS_ERR_OK !=
+			    cs_open(CS_ARCH_RISCV, CS_MODE_RISCV64, &handle)) {
+				fprintf(stderr,
+					"[-] Error starting capstone engine!\n");
+				res = EOPENC;
+				goto close;
+			}
 		}
 		is64Bit = true;
 
 	} else {
-		if (CS_ERR_OK !=
-		    cs_open(CS_ARCH_RISCV, CS_MODE_RISCV32, &handle)) {
+		if (0x1 == header.e_flags) {
 			fprintf(stderr,
-				"[-] Error starting capstone engine!\n");
+				"[-] Binaries with compressed ISA are not supported!\n");
+			res = EINVFILE;
 			goto close;
 		}
-		is64Bit = false;
 	}
 
 	cs_option(handle, CS_OPT_DETAIL, CS_OPT_ON);
@@ -144,6 +161,12 @@ close:
 	return res;
 }
 
+static inline bool checkArch(Elf32_Ehdr *header)
+{
+	// Return true if the binary is from the RISC-V arch
+	return 243 == header->e_machine;
+}
+
 static int disas(unsigned char *opcode, uint64_t address)
 {
 	cs_insn *insn;
@@ -151,6 +174,7 @@ static int disas(unsigned char *opcode, uint64_t address)
 	instruction *current;
 	uint8_t last;
 
+	// Here is obtained the current instruction
 	count = cs_disasm(handle, opcode, sizeof(opcode) - 1, address, 0,
 			  &insn);
 	if (count > 0) {
@@ -167,6 +191,7 @@ static int disas(unsigned char *opcode, uint64_t address)
 		strncpy((char *)current->disassembled, i->mnemonic,
 			strlen(i->mnemonic));
 		if (!strstr("ret", i->mnemonic)) {
+			// Here a space is set between the mneminic and the op str
 			memset((void *)&current
 				       ->disassembled[strlen(i->mnemonic)],
 			       0x20, sizeof(char));
@@ -218,8 +243,7 @@ static int dumpCode(Elf32_Shdr *sect, char *mappedBin)
 	int32_t *opcode;
 	uint64_t vaddr;
 	uint32_t i;
-	unsigned char *opcode_ptr =
-		(unsigned char *)calloc(1, sizeof(char) * 5);
+	unsigned char *opcode_ptr = (unsigned char *)calloc(5, sizeof(char));
 
 	opcode = (int *)(mappedBin + sect->sh_offset);
 	vaddr = sect->sh_addr;
@@ -230,6 +254,7 @@ static int dumpCode(Elf32_Shdr *sect, char *mappedBin)
 	for (i = 0; i < sect->sh_size / 4; i++, vaddr += 4, opcode++) {
 		getOpcode(*opcode, opcode_ptr);
 		if (1 == disas(opcode_ptr, vaddr)) {
+			// The code is executed if capstone can't disas the instruction
 			free(opcode_ptr);
 			return 1;
 		}
@@ -240,8 +265,8 @@ static int dumpCode(Elf32_Shdr *sect, char *mappedBin)
 
 static uint8_t fillData(struct instruction *instruction, cs_detail *detail)
 {
-	char start = instruction->disassembled[0];
 	cs_riscv_op *op;
+	char start = instruction->disassembled[0];
 	switch (start) {
 	case 'l':
 		if (!strstr(instruction->disassembled, ".w")) {
@@ -467,6 +492,12 @@ static uint8_t fillData(struct instruction *instruction, cs_detail *detail)
 		break;
 	}
 	return pushToPGL(instruction);
+}
+
+static inline bool getBits(Elf32_Ehdr *header)
+{
+	// If value equals to 2, the binary is from a 64 bits arch
+	return 2 == header->e_ident[EI_CLASS];
 }
 
 static void getOpcode(int opcode, unsigned char *opcode_ptr)

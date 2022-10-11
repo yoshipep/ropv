@@ -34,12 +34,6 @@ typedef struct gadget_t
 
 extern struct arguments args;
 
-static inline bool isLastInstruction(struct instruction *instruction)
-{
-	return (LOAD == instruction->operation) &&
-	       (0 == strcmp(instruction->regDest, "ra"));
-}
-
 void printGadget(struct gadget_t *gadget);
 
 void processGadgets(uint8_t lastElement, op_t lastOperation);

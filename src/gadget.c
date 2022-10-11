@@ -41,6 +41,8 @@ static bool checkValidity(struct instruction *instruction);
 
 static char *generateKey(struct gadget_t *gadget);
 
+static inline bool isLastInstruction(struct instruction *instruction);
+
 static struct gadget_t *jopFilter(struct gadget_t *gadget);
 
 static bool messSp(struct instruction *instruction);
@@ -131,7 +133,7 @@ void processGadgets(uint8_t lastElement, op_t lastOperation)
 
 			if (NULL == found) {
 				lastSp = insert(lastSp, gadget, newKey);
-				last = insert(last, gadget, key); //! Revisar
+				last = insert(last, gadget, key);
 			}
 
 			else {
@@ -186,6 +188,12 @@ static char *generateKey(struct gadget_t *gadget)
 		index += length;
 	}
 	return buf;
+}
+
+static inline bool isLastInstruction(struct instruction *instruction)
+{
+	return (LOAD == instruction->operation) &&
+	       (0 == strcmp(instruction->regDest, "ra"));
 }
 
 static struct gadget_t *jopFilter(struct gadget_t *gadget)
