@@ -1,5 +1,5 @@
 CC=clang
-CFLAGS=-O2 -D_FORTIFY_SOURCE=2 -fstack-protector
+CFLAGS=-O2 -std=gnu11 -D_FORTIFY_SOURCE=2 -fstack-protector
 LFLAGS=-l$(LIBNAME) -fPIE
 LIBNAME=capstone
 INCLUDE=-I ./include
