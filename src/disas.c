@@ -38,19 +38,20 @@
 
 static csh handle;
 
-static bool is64Bit;
+static enum bits { BIT32, BIT64 } bitness;
 
 static __attribute__((always_inline)) inline bool checkArch(Elf32_Ehdr *header);
 
-static int disas(unsigned char *opcode, uint64_t address);
-
-static int dumpCode(Elf32_Shdr *sect, char *mappedBin);
+static int disas(Elf32_Shdr *sect, char *mappedAddress,
+		 unsigned char *opcode_content);
 
 static uint8_t fillData(struct instruction *instruction, cs_detail *detail);
 
 static __attribute__((always_inline)) inline bool getBits(Elf32_Ehdr *header);
 
 static void getOpcode(int opcode, unsigned char *opcode_ptr);
+
+static uint8_t initializeCapstone(uint8_t usesCIns);
 
 static struct mappedBin *mapFile(FILE *file);
 
@@ -64,6 +65,8 @@ uint8_t process_elf(char *elfFile)
 	uint8_t i, res;
 	struct mappedBin *mf;
 	uint32_t offset;
+	unsigned char *opcode_content =
+		(unsigned char *)calloc(1, sizeof(char) * 5);
 
 	file = fopen(elfFile, "rb");
 
@@ -94,47 +97,15 @@ uint8_t process_elf(char *elfFile)
 		goto close;
 	}
 
-	// Check the bitness
-	if (getBits(&header)) {
-		// Check if the binary uses compressed instructions
-		if (0x1 == header.e_flags) {
-			if (CS_ERR_OK !=
-			    cs_open(CS_ARCH_RISCV,
-				    CS_MODE_RISCV32 + CS_MODE_RISCVC,
-				    &handle)) {
-				fprintf(stderr,
-					"[-] Error starting capstone engine!\n");
-				res = EOPENC;
-				goto close;
-			}
-		} else {
-			if (CS_ERR_OK !=
-			    cs_open(CS_ARCH_RISCV, CS_MODE_RISCV64, &handle)) {
-				fprintf(stderr,
-					"[-] Error starting capstone engine!\n");
-				res = EOPENC;
-				goto close;
-			}
-		}
-		is64Bit = true;
-
-	} else {
-		if (0x1 == header.e_flags) {
-			fprintf(stderr,
-				"[-] Binaries with compressed ISA are not supported!\n");
-			res = EINVFILE;
-			goto close;
-		}
-	}
-
-	cs_option(handle, CS_OPT_DETAIL, CS_OPT_ON);
-
 	// Check if the program has any program header
 	if (!header.e_phnum) {
 		fprintf(stderr, "[-] Invalid ELF file!\n");
 		res = EINVFILE;
-		goto cclose;
+		goto close;
 	} else {
+		bitness = true == getBits(&header) ? BIT64 : BIT32;
+		initializeCapstone(header.e_flags);
+		cs_option(handle, CS_OPT_DETAIL, CS_OPT_ON);
 		mf = mapFile(file);
 		if (NULL == mf) {
 			goto cclose;
@@ -142,15 +113,20 @@ uint8_t process_elf(char *elfFile)
 		for (i = 0; i < header.e_shnum; i++) {
 			offset = header.e_shoff + header.e_shentsize * i;
 			fseek(file, offset, SEEK_SET);
+#pragma clang diagnostic ignored "-Wunused-result"
 			fread(&sh, sizeof(sh), 1, file);
 			if ((SHT_PROGBITS == sh.sh_type) &&
 			    ((SHF_ALLOC | SHF_EXECINSTR) == sh.sh_flags)) {
-				if (1 == dumpCode(&sh, mf->address)) {
+				if (1 ==
+				    disas(&sh, mf->address, opcode_content)) {
 					res = EIINS;
 					break;
 				}
 			}
 		}
+		free(opcode_content);
+		opcode_content = NULL;
+		printContent(list);
 	}
 	unmapFile(mf);
 
@@ -167,99 +143,109 @@ static inline bool checkArch(Elf32_Ehdr *header)
 	return 243 == header->e_machine;
 }
 
-static int disas(unsigned char *opcode, uint64_t address)
+static int disas(Elf32_Shdr *sect, char *mappedAddress,
+		 unsigned char *opcode_content)
 {
 	cs_insn *insn;
 	size_t count;
+	uint32_t i;
+	uint64_t vaddr;
+	int32_t *opcode_ptr;
 	instruction *current;
 	uint8_t last;
 
-	// Here is obtained the current instruction
-	count = cs_disasm(handle, opcode, sizeof(opcode) - 1, address, 0,
-			  &insn);
-	if (count > 0) {
-		current = (struct instruction *)calloc(1, sizeof(instruction));
-		if (is64Bit) {
-			current->addr.addr64 = address;
-		} else {
-			current->addr.addr32 = (uint32_t)address;
-		}
-		cs_insn *i = &(insn[0]);
-		current->disassembled = (const char *)calloc(
-			strlen(i->mnemonic) + strlen(i->op_str) + 2,
-			sizeof(char));
-		strncpy((char *)current->disassembled, i->mnemonic,
-			strlen(i->mnemonic));
-		if (!strstr("ret", i->mnemonic)) {
-			// Here a space is set between the mneminic and the op str
-			memset((void *)&current
-				       ->disassembled[strlen(i->mnemonic)],
-			       0x20, sizeof(char));
-		}
-		strncpy((char *)&current->disassembled[strlen(i->mnemonic) + 1],
-			i->op_str, strlen(i->op_str));
-		cs_detail *detail = insn->detail;
-		last = fillData(current, detail);
-		switch (args.mode) {
-		case JOP_MODE:
-			if ((JMP == current->operation) &&
-			    strstr(current->disassembled, "jr")) {
-				processGadgets(last, current->operation);
-			}
-			break;
-
-		case SYSCALL_MODE:
-			if (SYSCALL == current->operation) {
-				processGadgets(last, current->operation);
-			}
-			break;
-
-		case RET_MODE:
-		default:
-			if (RET == current->operation) {
-				processGadgets(last, current->operation);
-			}
-			break;
-
-		case GENERIC_MODE:
-			if ((RET == current->operation) ||
-			    (SYSCALL == current->operation) ||
-			    ((JMP == current->operation) &&
-			     strstr(current->disassembled, "jr"))) {
-				processGadgets(last, current->operation);
-			}
-			break;
-		}
-		cs_free(insn, count);
-	} else {
-		fprintf(stderr, "ERROR: Failed to disassemble given code!\n");
-		return 1;
+	if (NULL == list) {
+		list = create();
 	}
-	return 0;
-}
 
-static int dumpCode(Elf32_Shdr *sect, char *mappedBin)
-{
-	int32_t *opcode;
-	uint64_t vaddr;
-	uint32_t i;
-	unsigned char *opcode_ptr = (unsigned char *)calloc(5, sizeof(char));
+	if (NULL == spDuplicated) {
+		spDuplicated = create();
+	}
 
-	opcode = (int *)(mappedBin + sect->sh_offset);
+	opcode_ptr = (int *)(mappedAddress + sect->sh_offset);
 	vaddr = sect->sh_addr;
 
-	list = create();
-	spDuplicated = create();
+	for (i = 0; i < sect->sh_size / 4; i++) {
+		getOpcode(*opcode_ptr, opcode_content);
+		// Here is obtained the current instruction
+		count = cs_disasm(handle, opcode_content,
+				  sizeof(opcode_content) - 1, vaddr, 0, &insn);
 
-	for (i = 0; i < sect->sh_size / 4; i++, vaddr += 4, opcode++) {
-		getOpcode(*opcode, opcode_ptr);
-		if (1 == disas(opcode_ptr, vaddr)) {
-			// The code is executed if capstone can't disas the instruction
-			free(opcode_ptr);
+		if (count > 0) {
+			current = (struct instruction *)calloc(
+				1, sizeof(instruction));
+			if (BIT64 == bitness) {
+				current->addr.addr64 = vaddr;
+			} else {
+				current->addr.addr32 = (uint32_t)vaddr;
+			}
+			cs_insn *i = &(insn[0]);
+			current->disassembled = (const char *)calloc(
+				strlen(i->mnemonic) + strlen(i->op_str) + 2,
+				sizeof(char));
+			strncpy((char *)current->disassembled, i->mnemonic,
+				strlen(i->mnemonic));
+			if (!strstr("ret", i->mnemonic) &&
+			    !strstr("ecall", i->mnemonic)) {
+				// Here a space is set between the mnemonic and the op str
+				memset((void *)&current->disassembled[strlen(
+					       i->mnemonic)],
+				       0x20, sizeof(char));
+			}
+			strncpy((char *)&current
+					->disassembled[strlen(i->mnemonic) + 1],
+				i->op_str, strlen(i->op_str));
+			cs_detail *detail = insn->detail;
+			last = fillData(current, detail);
+			switch (args.mode) {
+			case JOP_MODE:
+				if ((JMP == current->operation) &&
+				    strstr(current->disassembled, "jr")) {
+					processGadgets(last,
+						       current->operation);
+				}
+				break;
+
+			case SYSCALL_MODE:
+				if (SYSCALL == current->operation) {
+					processGadgets(last,
+						       current->operation);
+				}
+				break;
+
+			case RET_MODE:
+			default:
+				if (RET == current->operation) {
+					processGadgets(last,
+						       current->operation);
+				}
+				break;
+
+			case GENERIC_MODE:
+				if ((RET == current->operation) ||
+				    (SYSCALL == current->operation) ||
+				    ((JMP == current->operation) &&
+				     strstr(current->disassembled, "jr"))) {
+					processGadgets(last,
+						       current->operation);
+				}
+				break;
+			}
+			cs_free(insn, count);
+			if (2 == insn->size) {
+				vaddr += 2;
+#pragma clang diagnostic ignored "-Wincompatible-pointer-types"
+				opcode_ptr = ((unsigned char *)opcode_ptr) + 2;
+			} else {
+				vaddr += 4;
+				opcode_ptr++;
+			}
+		} else {
+			fprintf(stderr,
+				"ERROR: Failed to disassemble given code!\n");
 			return 1;
 		}
 	}
-	printContent(list);
 	return 0;
 }
 
@@ -503,9 +489,33 @@ static inline bool getBits(Elf32_Ehdr *header)
 static void getOpcode(int opcode, unsigned char *opcode_ptr)
 {
 	opcode_ptr[0] = 0xFF & opcode;
-	opcode_ptr[1] = (0xFF00 & opcode) >> 8;
-	opcode_ptr[2] = (0xFF0000 & opcode) >> 16;
-	opcode_ptr[3] = (0xFF000000 & opcode) >> 24;
+	opcode_ptr[1] = ((0xFF << 8) & opcode) >> 8;
+	opcode_ptr[2] = ((0xFF << 16) & opcode) >> 16;
+	opcode_ptr[3] = ((0xFF << 24) & opcode) >> 24;
+}
+
+static uint8_t initializeCapstone(uint8_t usesCIns)
+{
+	uint8_t res;
+	if ((BIT64 == bitness) && usesCIns) {
+		res = cs_open(CS_ARCH_RISCV, CS_MODE_RISCV64 + CS_MODE_RISCVC,
+			      &handle);
+	} else if (!usesCIns) {
+		res = cs_open(CS_ARCH_RISCV, CS_MODE_RISCV64, &handle);
+	}
+
+	if (!(BIT64 == bitness) && usesCIns) {
+		res = cs_open(CS_ARCH_RISCV, CS_MODE_RISCV32 + CS_MODE_RISCVC,
+			      &handle);
+	} else if (!usesCIns) {
+		res = cs_open(CS_ARCH_RISCV, CS_MODE_RISCV32, &handle);
+	}
+
+	if (0 != res) {
+		fprintf(stderr, "[-] Error starting capstone engine!\n");
+	}
+
+	return res;
 }
 
 static struct mappedBin *mapFile(FILE *file)
@@ -530,6 +540,8 @@ static struct mappedBin *mapFile(FILE *file)
 
 	return res;
 error:
+	free(res);
+	res = NULL;
 	return NULL;
 }
 

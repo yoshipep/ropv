@@ -29,9 +29,9 @@
 
 struct instruction *preliminary_gadget_list[100];
 
-struct node_t *list;
+struct node_t *list = NULL;
 
-struct node_t *spDuplicated;
+struct node_t *spDuplicated = NULL;
 
 static struct node_t *last = NULL;
 
@@ -212,6 +212,7 @@ static struct gadget_t *jopFilter(struct gadget_t *gadget)
 
 	if (nCoindicendes >= (gadget->length / 2)) {
 		free(gadget);
+		gadget = NULL;
 		return NULL;
 	}
 	return gadget;
@@ -286,6 +287,7 @@ static struct gadget_t *retFilter(uint16_t lastElement)
 		return gadget;
 	}
 	free(gadget);
+	gadget = NULL;
 	return NULL;
 }
 
