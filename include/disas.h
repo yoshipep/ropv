@@ -20,12 +20,13 @@
 #define _DISAS_H
 
 #include <elf.h>
+#include <capstone/riscv.h>
 #include <stdbool.h>
 #include <stdint.h>
 #include <sys/mman.h>
 #include <sys/types.h>
 
-struct mappedBin {
+struct mappedFile {
 	char *address;
 	off_t size;
 };
@@ -37,10 +38,5 @@ extern struct node_t *list;
 extern struct node_t *spDuplicated;
 
 uint8_t process_elf(char *elfFile);
-
-static __attribute__((always_inline)) inline void
-unmapFile(struct mappedBin *file) {
-	munmap(file->address, file->size);
-}
 
 #endif

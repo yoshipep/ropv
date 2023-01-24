@@ -23,6 +23,19 @@
 #include "ropv.h"
 #include "disas.h"
 
+struct arguments args;
+
+const char *argp_program_version = "ropv v1.0";
+
+const char *argp_program_bug_address = "comes.josep2@gmail.com";
+
+static char args_doc[] = "file";
+
+static char doc[] =
+	"Tool for ROP explotation (ELF binaries & RISC-V architecture)";
+
+static bool genericModeSelected = false;
+
 static struct argp_option options[] = {
 	{ "all", 'a', 0, 0, "Show all gadgets. Option selected by default", 0 },
 	{ "ret", 'r', 0, 0, "Show only RET gadgets", 1 },
@@ -31,24 +44,15 @@ static struct argp_option options[] = {
 	{ 0 }
 };
 
-struct arguments args;
-
-static bool genericModeSelected = false;
-
 static bool otherModeSelected = false;
 
-const char *argp_program_version = "ropv v1.0";
-const char *argp_program_bug_address = "comes.josep2@gmail.com";
-static char doc[] =
-	"Tool for ROP explotation (ELF binaries & RISC-V architecture)";
-static char args_doc[] = "file";
-
 static error_t parse_opt(int key, char *arg, struct argp_state *state);
+
+static struct argp argp = { options, parse_opt, args_doc, doc, 0, 0, 0 };
 
 static error_t parse_opt(int key, char *arg, struct argp_state *state)
 {
 	struct arguments *arguments = state->input;
-
 	switch (key) {
 	case 'a':
 		if (!otherModeSelected) {
@@ -60,7 +64,6 @@ static error_t parse_opt(int key, char *arg, struct argp_state *state)
 				"Invalid argument combination. Options -a and [-r -j -s] are mutually exclusive");
 		}
 		break;
-
 	case 'r':
 		if (!genericModeSelected) {
 			arguments->mode = RET_MODE;
@@ -71,7 +74,6 @@ static error_t parse_opt(int key, char *arg, struct argp_state *state)
 				"Invalid argument combination. Options -r and -a are mutually exclusive");
 		}
 		break;
-
 	case 's':
 		if (!genericModeSelected) {
 			arguments->mode = SYSCALL_MODE;
@@ -82,7 +84,6 @@ static error_t parse_opt(int key, char *arg, struct argp_state *state)
 				"Invalid argument combination. Options -s and -a are mutually exclusive");
 		}
 		break;
-
 	case 'j':
 		if (!genericModeSelected) {
 			arguments->mode = JOP_MODE;
@@ -93,19 +94,15 @@ static error_t parse_opt(int key, char *arg, struct argp_state *state)
 				"Invalid argument combination. Options -j and -a are mutually exclusive");
 		}
 		break;
-
 	case ARGP_KEY_ARG:
-		if (state->arg_num >= 1) {
+		if (state->arg_num >= 1)
 			argp_usage(state);
-		} else {
+		else
 			arguments->file = arg;
-		}
 		break;
-
 	case ARGP_KEY_END:
-		if (state->arg_num < 1) {
+		if (state->arg_num < 1)
 			argp_usage(state);
-		}
 		break;
 
 	default:
@@ -113,8 +110,6 @@ static error_t parse_opt(int key, char *arg, struct argp_state *state)
 	}
 	return 0;
 }
-
-static struct argp argp = { options, parse_opt, args_doc, doc, 0, 0, 0 };
 
 int main(int argc, char *argv[])
 {

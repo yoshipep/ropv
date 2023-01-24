@@ -19,53 +19,25 @@
 #ifndef _INSTRUCTIONS_H
 #define _INSTRUCTIONS_H
 
+#include <capstone/riscv.h>
 #include <stdbool.h>
 #include <stdint.h>
 
 typedef uint32_t addr32_t;
 typedef uint64_t addr64_t;
 
-typedef enum
-{
-	LOAD,
-	STORE,
-	CMP,
-	JMP,
-	ADD,
-	OR,
-	AND,
-	SHIFT,
-	SUB,
-	SET,
-	NOP,
-	MOV,
-	CALL,
-	SYSCALL,
-	BRK,
-	NOT,
-	NEG,
-	RET,
-	ATOMIC,
-	IO,
-	MUL,
-	DIV,
-	UNSUPORTED
-} op_t;
-
-typedef union address {
-		addr32_t addr32;
-		addr64_t addr64;
-	} address;
+union address {
+	addr32_t addr32;
+	addr64_t addr64;
+};
 
 typedef struct instruction
 {
 	union address addr;
 	int16_t immediate;
-	bool useImmediate;
-	bool useShift;
-	op_t operation;
+	bool useImmediate: 1;
+	enum riscv_insn operation;
 	const char *disassembled;
-	const char *regToShift;
 	const char *regDest;
 } instruction;
 

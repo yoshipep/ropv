@@ -37,110 +37,107 @@ static struct node_t *last = NULL;
 
 static struct node_t *lastSp = NULL;
 
-static bool checkValidity(struct instruction *instruction);
+static bool checkValidity(struct instruction *ins);
 
-static char *generateKey(struct gadget_t *gadget);
+static char *generateKey(struct gadget_t *g);
 
-static inline bool isLastInstruction(struct instruction *instruction);
+static bool isAddInstruction(enum riscv_insn *op);
 
-static struct gadget_t *jopFilter(struct gadget_t *gadget);
+static inline bool isAtomicInstruction(enum riscv_insn *op);
 
-static bool messSp(struct instruction *instruction);
+static inline bool isBreakInstruction(enum riscv_insn *op);
 
-static struct gadget_t *noRetFilter(uint16_t lastElement);
+static bool isCmpInstruction(enum riscv_insn *op);
 
-static struct gadget_t *retFilter(uint16_t lastElement);
+static bool isIOInstruction(enum riscv_insn *op);
+
+static bool isJumpInstruction(enum riscv_insn *op);
+
+static bool isLastInstruction(struct instruction *ins);
+
+static bool isLoadInstruction(enum riscv_insn *op);
+
+static bool isSubInstruction(enum riscv_insn *op);
+
+static struct gadget_t *jopFilter(struct gadget_t *g);
+
+static bool messSp(struct instruction *ins);
+
+static struct gadget_t *noRetFilter(uint8_t lastElement);
+
+static struct gadget_t *retFilter(uint8_t lastElement);
 
 static char *updateKey(char *key);
 
-void printGadget(struct gadget_t *gadget)
+void printGadget(struct gadget_t *g)
 {
-	if (gadget->length > 0) {
+	if (g->length > 0) {
 		int8_t i;
-
-		for (i = gadget->length - 1; i >= 0; i--) {
-			if (gadget->length - 1 == i) {
-				if (0 == gadget->instructions[i]->addr.addr32) {
-					printf("%#010lx:%c",
-					       gadget->instructions[i]
-						       ->addr.addr64,
-					       0x20);
-				} else {
-					printf("%#010x:%c",
-					       gadget->instructions[i]
-						       ->addr.addr32,
-					       0x20);
-				}
+		for (i = g->length - 1; i >= 0; i--) {
+			if ((g->length - 1 == i) &&
+			    (0 == g->instructions[i]->addr.addr32)) {
+				printf("%#010lx:%c",
+				       g->instructions[i]->addr.addr64, 0x20);
+			} else if ((g->length - 1 == i) &&
+				   (0 != g->instructions[i]->addr.addr32)) {
+				printf("%#010x:%c",
+				       g->instructions[i]->addr.addr32, 0x20);
 			}
-
-			if (0 == i) {
-				printf("%s;",
-				       gadget->instructions[i]->disassembled);
-			}
-
-			else {
+			if (0 == i)
+				printf("%s;", g->instructions[i]->disassembled);
+			else
 				printf("%s;%c",
-				       gadget->instructions[i]->disassembled,
-				       0x20);
-			}
+				       g->instructions[i]->disassembled, 0x20);
 		}
 		putchar(0x0a); // Newline
 	}
 }
 
-void processGadgets(uint8_t lastElement, op_t lastOperation)
+void processGadgets(uint8_t lastElem, enum riscv_insn lastOp)
 {
 	char *key, *tmp, *newKey;
 	uint8_t index;
 	struct node_t *found;
-	struct gadget_t *gadget;
-
-	switch (lastOperation) {
-	case RET:
+	struct gadget_t *g;
+	switch (lastOp) {
+	case 0:
 	default:
-		gadget = retFilter(lastElement);
+		g = retFilter(lastElem);
 		break;
-	case SYSCALL:
-		gadget = noRetFilter(lastElement);
+	case RISCV_INS_ECALL:
+		g = noRetFilter(lastElem);
 		break;
-	case JMP:
-		gadget = noRetFilter(lastElement);
-		gadget = jopFilter(gadget);
+	case RISCV_INS_C_JALR:
+	case RISCV_INS_JALR:
+		g = noRetFilter(lastElem);
+		g = jopFilter(g);
 		break;
 	}
-
-	if ((NULL != gadget) || (NULL != gadget && gadget->length > 0)) {
-		if (NULL == last) {
+	if ((NULL != g) || (NULL != g && g->length > 0)) {
+		if (NULL == last)
 			last = list;
-		}
-		key = generateKey(gadget);
-
-		for (index = 0; index < gadget->length; index++) {
-			if ((ADD == gadget->instructions[index]->operation) &&
-			    (gadget->instructions[index]->useImmediate) &&
-			    (0 == strcmp(gadget->instructions[index]->regDest,
-					 "sp"))) {
+		key = generateKey(g);
+		for (index = 0; index < g->length; index++) {
+			if ((isAddInstruction(
+				    &g->instructions[index]->operation)) &&
+			    (g->instructions[index]->useImmediate) &&
+			    (0 ==
+			     strcmp(g->instructions[index]->regDest, "sp")))
 				break;
-			}
 		}
-
-		if ((gadget->length >= 2) && (index < gadget->length)) {
-			if (NULL == lastSp) {
+		if ((g->length >= 2) && (index < g->length)) {
+			if (NULL == lastSp)
 				lastSp = spDuplicated;
-			}
 			newKey = updateKey(key);
 			found = find(spDuplicated, newKey);
-
 			if (NULL == found) {
-				lastSp = insert(lastSp, gadget, newKey);
-				last = insert(last, gadget, key);
-			}
-
-			else {
+				lastSp = insert(lastSp, g, newKey);
+				last = insert(last, g, key);
+			} else {
 				if (found->data->instructions[index]->immediate >
-				    gadget->instructions[index]->immediate) {
+				    g->instructions[index]->immediate) {
 					tmp = generateKey(found->data);
-					update(found, gadget, newKey);
+					update(found, g, newKey);
 					del(list, tmp);
 					free(tmp);
 					tmp = NULL;
@@ -148,146 +145,178 @@ void processGadgets(uint8_t lastElement, op_t lastOperation)
 			}
 			free(newKey);
 			newKey = NULL;
-		} else {
-			if (NULL == find(list, key)) {
-				last = insert(last, gadget, key);
-			}
+		} else if (NULL == find(list, key)) {
+			last = insert(last, g, key);
 		}
 		free(key);
 		key = NULL;
 	}
 }
 
-static bool checkValidity(struct instruction *instruction)
+static bool checkValidity(struct instruction *ins)
 {
-	return (CMP != instruction->operation) &&
-	       (JMP != instruction->operation) &&
-	       (BRK != instruction->operation) &&
-	       (RET != instruction->operation) &&
-	       (CALL != instruction->operation) &&
-	       (SYSCALL != instruction->operation) &&
-	       (UNSUPORTED != instruction->operation) &&
-	       (ATOMIC != instruction->operation) &&
-	       (IO != instruction->operation) &&
-	       !strstr(instruction->disassembled, "auipc") &&
-	       !messSp(instruction);
+	return (!isCmpInstruction(&ins->operation)) &&
+	       (!isJumpInstruction(&ins->operation)) &&
+	       (!isBreakInstruction(&ins->operation)) &&
+	       (RISCV_INS_ECALL != ins->operation) &&
+	       (RISCV_INS_INVALID != ins->operation) &&
+	       (!isAtomicInstruction(&ins->operation)) &&
+	       (!isIOInstruction(&ins->operation)) &&
+	       (!strstr(ins->disassembled, "auipc")) && (!messSp(ins));
 }
 
 // Generates a key where all the instructions have no separation
-static char *generateKey(struct gadget_t *gadget)
+static char *generateKey(struct gadget_t *g)
 {
 	int8_t i;
 	size_t length;
 	uint16_t index = 0;
 	char *buf = (char *)calloc(700, sizeof(char));
-
-	for (i = gadget->length - 1; i >= 0; i--) {
-		length = strlen(gadget->instructions[i]->disassembled);
-		strncpy(&buf[index], gadget->instructions[i]->disassembled,
-			length);
+	for (i = g->length - 1; i >= 0; i--) {
+		length = strlen(g->instructions[i]->disassembled);
+		strncpy(&buf[index], g->instructions[i]->disassembled, length);
 		index += length;
 	}
 	return buf;
 }
 
-static inline bool isLastInstruction(struct instruction *instruction)
+static bool isAddInstruction(enum riscv_insn *op)
 {
-	return (LOAD == instruction->operation) &&
-	       (0 == strcmp(instruction->regDest, "ra"));
+	return (RISCV_INS_ADD == *op) || (RISCV_INS_ADDI == *op) ||
+	       (RISCV_INS_ADDIW == *op) || (RISCV_INS_ADDW == *op) ||
+	       (RISCV_INS_C_ADD == *op) || (RISCV_INS_C_ADDI == *op) ||
+	       (RISCV_INS_C_ADDIW == *op) || (RISCV_INS_C_ADDW == *op) ||
+	       (RISCV_INS_C_ADDI16SP == *op) || (RISCV_INS_C_ADDI4SPN == *op);
 }
 
-static struct gadget_t *jopFilter(struct gadget_t *gadget)
+static inline bool isAtomicInstruction(enum riscv_insn *op)
+{
+	/*5 = RISCV_INS_AMOADD_D, 76 = RISCV_INS_AMOXOR_W_RL*/
+	return (5 >= *op) && (76 <= *op);
+}
+
+static inline bool isBreakInstruction(enum riscv_insn *op)
+{
+	return (RISCV_INS_C_EBREAK == *op) || (RISCV_INS_EBREAK == *op);
+}
+
+static bool isCmpInstruction(enum riscv_insn *op)
+{
+	return (RISCV_INS_BEQ == *op) || (RISCV_INS_BGE == *op) ||
+	       (RISCV_INS_BGEU == *op) || (RISCV_INS_BLT == *op) ||
+	       (RISCV_INS_BLTU == *op) || (RISCV_INS_BNE == *op) ||
+	       (RISCV_INS_C_BEQZ == *op) || (RISCV_INS_C_BNEZ == *op);
+}
+
+static bool isIOInstruction(enum riscv_insn *op)
+{
+	return (RISCV_INS_FENCE == *op) || (RISCV_INS_FENCE_I == *op) ||
+	       (RISCV_INS_FENCE_TSO == *op) || (RISCV_INS_SFENCE_VMA == *op);
+}
+
+static bool isJumpInstruction(enum riscv_insn *op)
+{
+	return (RISCV_INS_C_J == *op) || (RISCV_INS_C_JAL == *op) ||
+	       (RISCV_INS_C_JALR == *op) || (RISCV_INS_C_JR == *op) ||
+	       (RISCV_INS_JAL == *op) || (RISCV_INS_JALR == *op);
+}
+
+static bool isLastInstruction(struct instruction *ins)
+{
+	return (isLoadInstruction(&ins->operation)) &&
+	       (0 == strcmp(ins->regDest, "ra"));
+}
+
+static bool isLoadInstruction(enum riscv_insn *op)
+{
+	return (RISCV_INS_LB == *op) || (RISCV_INS_LBU == *op) ||
+	       (RISCV_INS_LH == *op) || (RISCV_INS_LHU == *op) ||
+	       (RISCV_INS_C_LW == *op) || (RISCV_INS_LW == *op) ||
+	       (RISCV_INS_LWU == *op) || (RISCV_INS_C_LWSP == *op);
+}
+
+static bool isSubInstruction(enum riscv_insn *op)
+{
+	return (RISCV_INS_SUB == *op) || (RISCV_INS_SUBW == *op) ||
+	       (RISCV_INS_C_SUB == *op) || (RISCV_INS_C_SUBW == *op);
+}
+
+static struct gadget_t *jopFilter(struct gadget_t *g)
 {
 	int8_t i;
-	const char *refRegister;
-	uint8_t nCoindicendes = 0;
-	refRegister = gadget->instructions[0]->regDest;
-
-	for (i = gadget->length - 1; i >= 1; i--) {
-		if (0 ==
-		    strcmp(refRegister, gadget->instructions[i]->regDest)) {
-			nCoindicendes++;
-		}
+	const char *refRegister = g->instructions[0]->regDest;
+	uint8_t coincidences = 0;
+	for (i = g->length - 1; i >= 1; i--) {
+		if (0 == strcmp(refRegister, g->instructions[i]->regDest))
+			coincidences++;
 	}
-
-	if (nCoindicendes >= (gadget->length / 2)) {
-		free(gadget);
-		gadget = NULL;
+	if (coincidences >= (g->length / 2)) {
+		free(g);
+		g = NULL;
 		return NULL;
 	}
-	return gadget;
+	return g;
 }
 
-static bool messSp(struct instruction *instruction)
+static bool messSp(struct instruction *ins)
 {
-	return ((ADD == instruction->operation) && instruction->useImmediate &&
-		(instruction->immediate < 0) &&
-		strstr(instruction->disassembled, "addi\tsp")) ||
-	       ((SUB == instruction->operation) &&
-		strstr(instruction->disassembled, "sub\tsp"));
+	return (((isAddInstruction(&ins->operation)) && ins->useImmediate &&
+		 (ins->immediate < 0)) ||
+		(isSubInstruction(&ins->operation))) &&
+	       (0 == strcmp("sp", ins->regDest));
 }
 
-static struct gadget_t *noRetFilter(uint16_t lastElement)
+static struct gadget_t *noRetFilter(uint8_t lastElement)
 {
-	uint16_t current;
-	struct gadget_t *gadget =
-		(gadget_t *)calloc(1, sizeof(struct gadget_t));
-
-	gadget->instructions[0] = preliminary_gadget_list[lastElement];
-	gadget->length = 1;
-	current = 0 == lastElement ? 99 : lastElement - gadget->length;
-	while (gadget->length < MAX_LENGTH_NO_RET &&
+	uint8_t current;
+	struct gadget_t *g =
+		(struct gadget_t *)calloc(1, sizeof(struct gadget_t));
+	g->instructions[0] = preliminary_gadget_list[lastElement];
+	g->length = 1;
+	current = 0 == lastElement ? 99 : lastElement - g->length;
+	while (g->length < MAX_LENGTH_NO_RET &&
 	       checkValidity(preliminary_gadget_list[current])) {
-		gadget->instructions[gadget->length] =
-			preliminary_gadget_list[current];
-		gadget->length++;
+		g->instructions[g->length] = preliminary_gadget_list[current];
+		g->length++;
 		if (0 == current) {
 			current = 99;
-		}
-
-		else {
+		} else {
 			current--;
 			if (0 == current)
 				current = 99;
 		}
 	}
-	return gadget;
+	return g;
 }
 
-static struct gadget_t *retFilter(uint16_t lastElement)
+static struct gadget_t *retFilter(uint8_t lastElement)
 {
-	uint16_t current;
-	struct gadget_t *gadget =
-		(gadget_t *)calloc(1, sizeof(struct gadget_t));
-
-	gadget->instructions[0] = preliminary_gadget_list[lastElement];
-	gadget->length = 1;
-	current = 0 == lastElement ? 99 : lastElement - gadget->length;
-	while (gadget->length < MAX_LENGTH &&
+	uint8_t current;
+	struct gadget_t *g =
+		(struct gadget_t *)calloc(1, sizeof(struct gadget_t));
+	g->instructions[0] = preliminary_gadget_list[lastElement];
+	g->length = 1;
+	current = 0 == lastElement ? 99 : lastElement - g->length;
+	while (g->length < MAX_LENGTH &&
 	       checkValidity(preliminary_gadget_list[current]) &&
 	       !isLastInstruction(preliminary_gadget_list[current])) {
-		gadget->instructions[gadget->length] =
-			preliminary_gadget_list[current];
-		gadget->length++;
+		g->instructions[g->length] = preliminary_gadget_list[current];
+		g->length++;
 		if (0 == current) {
 			current = 99;
-		}
-
-		else {
+		} else {
 			current--;
 			if (0 == current)
 				current = 99;
 		}
 	}
-
 	if (isLastInstruction(preliminary_gadget_list[current])) {
-		gadget->instructions[gadget->length] =
-			preliminary_gadget_list[current];
-		gadget->length++;
-		return gadget;
+		g->instructions[g->length] = preliminary_gadget_list[current];
+		g->length++;
+		return g;
 	}
-	free(gadget);
-	gadget = NULL;
+	free(g);
+	g = NULL;
 	return NULL;
 }
 
@@ -297,11 +326,9 @@ static char *updateKey(char *key)
 	size_t index = strlen(key);
 	char *aux = strdup(key);
 	char *last = &aux[index - 1];
-
 	while (*last != 0x20) {
 		last--;
 	}
-
 	memset(last, 0x0, strlen(last));
 	memcpy(last, "ret", 3);
 	return aux;

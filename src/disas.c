@@ -38,197 +38,157 @@
 
 static csh handle;
 
-static enum bits { BIT32, BIT64 } bitness;
+static enum bits { BIT64 = 0, BIT32 = 1 } bitness;
 
-static __attribute__((always_inline)) inline bool checkArch(Elf32_Ehdr *header);
+static __attribute__((always_inline)) inline bool checkArch(Elf32_Ehdr *hdr);
 
-static int disas(Elf32_Shdr *sect, char *mappedAddress,
-		 unsigned char *opcode_content);
+static int disas(Elf32_Shdr *sect, char *mappedAddress, unsigned char *opcode);
 
-static uint8_t fillData(struct instruction *instruction, cs_detail *detail);
+static uint8_t fillData(struct instruction *ins, cs_detail *det,
+			cs_insn *cs_inst);
 
-static __attribute__((always_inline)) inline bool getBits(Elf32_Ehdr *header);
+static __attribute__((always_inline)) inline bool getBits(Elf32_Ehdr *hdr);
 
 static void getOpcode(int opcode, unsigned char *opcode_ptr);
 
 static uint8_t initializeCapstone(uint8_t usesCIns);
 
-static struct mappedBin *mapFile(FILE *file);
+static inline bool isValidJump(enum riscv_insn *op);
 
-static uint8_t pushToPGL(struct instruction *instruction);
+static struct mappedFile *mapFile(FILE *f);
+
+static uint8_t pushToPGL(struct instruction *ins);
+
+static __attribute__((always_inline)) inline void
+unmapFile(struct mappedFile *mf);
 
 uint8_t process_elf(char *elfFile)
 {
-	Elf32_Ehdr header;
-	FILE *file;
+	Elf32_Ehdr hdr;
+	FILE *f;
 	Elf32_Shdr sh;
 	uint8_t i, res;
-	struct mappedBin *mf;
-	uint32_t offset;
-	unsigned char *opcode_content =
-		(unsigned char *)calloc(1, sizeof(char) * 5);
-
-	file = fopen(elfFile, "rb");
-
-	if (!file) {
+	struct mappedFile *mf;
+	uint32_t off;
+	unsigned char *opcode = (unsigned char *)calloc(1, sizeof(char) * 5);
+	f = fopen(elfFile, "rb");
+	if (!f) {
 		fprintf(stderr, "[-] Error while opening the file!\n");
 		return EOPEN;
 	}
 	res = 0;
-
 	// Read the ELF header
-	if (!fread(&header, sizeof(header), 1, file)) {
+	if (!fread(&hdr, sizeof(hdr), 1, f)) {
 		fprintf(stderr, "[-] Error while reading the ELF file!\n");
 		res = EIO;
-		goto close;
+		goto file_close;
 	}
-
 	// Check so its really an elf file
-	if (0 == (!memcmp(header.e_ident, ELFMAG, SELFMAG))) {
+	if (0 == (!memcmp(hdr.e_ident, ELFMAG, SELFMAG))) {
 		fprintf(stderr, "[-] Not an ELF file!\n");
 		res = ENOELF;
-		goto close;
+		goto file_close;
 	}
-
 	// Check the arch
-	if (!checkArch(&header)) {
+	if (!checkArch(&hdr)) {
 		fprintf(stderr, "[-] Bad architecture!\n");
 		res = EBARCH;
-		goto close;
+		goto file_close;
 	}
-
 	// Check if the program has any program header
-	if (!header.e_phnum) {
+	if (!hdr.e_phnum) {
 		fprintf(stderr, "[-] Invalid ELF file!\n");
 		res = EINVFILE;
-		goto close;
+		goto file_close;
 	} else {
-		bitness = true == getBits(&header) ? BIT64 : BIT32;
-		initializeCapstone(header.e_flags);
+		bitness = getBits(&hdr);
+		initializeCapstone(hdr.e_flags);
 		cs_option(handle, CS_OPT_DETAIL, CS_OPT_ON);
-		mf = mapFile(file);
-		if (NULL == mf) {
-			goto cclose;
-		}
-		for (i = 0; i < header.e_shnum; i++) {
-			offset = header.e_shoff + header.e_shentsize * i;
-			fseek(file, offset, SEEK_SET);
+		mf = mapFile(f);
+		if (NULL == mf)
+			goto capstone_close;
+		for (i = 0; i < hdr.e_shnum; i++) {
+			off = hdr.e_shoff + hdr.e_shentsize * i;
+			fseek(f, off, SEEK_SET);
 #pragma clang diagnostic ignored "-Wunused-result"
-			fread(&sh, sizeof(sh), 1, file);
+			fread(&sh, sizeof(sh), 1, f);
 			if ((SHT_PROGBITS == sh.sh_type) &&
-			    ((SHF_ALLOC | SHF_EXECINSTR) == sh.sh_flags)) {
-				if (1 ==
-				    disas(&sh, mf->address, opcode_content)) {
-					res = EIINS;
-					break;
-				}
+			    ((SHF_ALLOC | SHF_EXECINSTR) == sh.sh_flags) &&
+			    (1 == disas(&sh, mf->address, opcode))) {
+				res = EIINS;
+				break;
 			}
 		}
-		free(opcode_content);
-		opcode_content = NULL;
+		free(opcode);
+		opcode = NULL;
 		printContent(list);
 	}
 	unmapFile(mf);
-
-cclose:
+capstone_close:
 	cs_close(&handle);
-close:
-	fclose(file);
+file_close:
+	fclose(f);
 	return res;
 }
 
-static inline bool checkArch(Elf32_Ehdr *header)
+static inline bool checkArch(Elf32_Ehdr *hdr)
 {
 	// Return true if the binary is from the RISC-V arch
-	return 243 == header->e_machine;
+	return 243 == hdr->e_machine;
 }
 
-static int disas(Elf32_Shdr *sect, char *mappedAddress,
-		 unsigned char *opcode_content)
+static int disas(Elf32_Shdr *sect, char *mappedAddress, unsigned char *opcode)
 {
 	cs_insn *insn;
 	size_t count;
 	uint32_t i;
 	uint64_t vaddr;
 	int32_t *opcode_ptr;
-	instruction *current;
+	struct instruction *current;
 	uint8_t last;
-
-	if (NULL == list) {
+	if (NULL == list)
 		list = create();
-	}
 
-	if (NULL == spDuplicated) {
+	if (NULL == spDuplicated)
 		spDuplicated = create();
-	}
-
 	opcode_ptr = (int *)(mappedAddress + sect->sh_offset);
 	vaddr = sect->sh_addr;
-
 	for (i = 0; i < sect->sh_size / 4; i++) {
-		getOpcode(*opcode_ptr, opcode_content);
+		getOpcode(*opcode_ptr, opcode);
 		// Here is obtained the current instruction
-		count = cs_disasm(handle, opcode_content,
-				  sizeof(opcode_content) - 1, vaddr, 0, &insn);
-
+		count = cs_disasm(handle, opcode, sizeof(opcode) - 1, vaddr, 0,
+				  &insn);
 		if (count > 0) {
 			current = (struct instruction *)calloc(
-				1, sizeof(instruction));
-			if (BIT64 == bitness) {
+				1, sizeof(struct instruction));
+			if (BIT64 == bitness)
 				current->addr.addr64 = vaddr;
-			} else {
+			else
 				current->addr.addr32 = (uint32_t)vaddr;
-			}
-			cs_insn *i = &(insn[0]);
-			current->disassembled = (const char *)calloc(
-				strlen(i->mnemonic) + strlen(i->op_str) + 2,
-				sizeof(char));
-			strncpy((char *)current->disassembled, i->mnemonic,
-				strlen(i->mnemonic));
-			if (!strstr("ret", i->mnemonic) &&
-			    !strstr("ecall", i->mnemonic)) {
-				// Here a space is set between the mnemonic and the op str
-				memset((void *)&current->disassembled[strlen(
-					       i->mnemonic)],
-				       0x20, sizeof(char));
-			}
-			strncpy((char *)&current
-					->disassembled[strlen(i->mnemonic) + 1],
-				i->op_str, strlen(i->op_str));
-			cs_detail *detail = insn->detail;
-			last = fillData(current, detail);
+			last = fillData(current, insn->detail, &(insn[0]));
 			switch (args.mode) {
 			case JOP_MODE:
-				if ((JMP == current->operation) &&
-				    strstr(current->disassembled, "jr")) {
+				if (isValidJump(&current->operation))
 					processGadgets(last,
 						       current->operation);
-				}
 				break;
-
 			case SYSCALL_MODE:
-				if (SYSCALL == current->operation) {
+				if (RISCV_INS_ECALL == current->operation)
 					processGadgets(last,
 						       current->operation);
-				}
 				break;
-
 			case RET_MODE:
 			default:
-				if (RET == current->operation) {
-					processGadgets(last,
-						       current->operation);
-				}
+				if ('r' == current->disassembled[0])
+					processGadgets(last, 0);
 				break;
-
 			case GENERIC_MODE:
-				if ((RET == current->operation) ||
-				    (SYSCALL == current->operation) ||
-				    ((JMP == current->operation) &&
-				     strstr(current->disassembled, "jr"))) {
+				if ('r' == current->disassembled[0])
+					processGadgets(last, 0);
+				if ((RISCV_INS_ECALL == current->operation) ||
+				    (isValidJump(&current->operation)))
 					processGadgets(last,
 						       current->operation);
-				}
 				break;
 			}
 			cs_free(insn, count);
@@ -242,248 +202,64 @@ static int disas(Elf32_Shdr *sect, char *mappedAddress,
 			}
 		} else {
 			fprintf(stderr,
-				"ERROR: Failed to disassemble given code!\n");
+				"ERROR: Failed to disassemble the given code!\n Address: 0x%08x\n",
+				vaddr);
 			return 1;
 		}
 	}
 	return 0;
 }
 
-static uint8_t fillData(struct instruction *instruction, cs_detail *detail)
+static uint8_t fillData(struct instruction *ins, cs_detail *det,
+			cs_insn *cs_inst)
 {
 	cs_riscv_op *op;
-	char start = instruction->disassembled[0];
-	switch (start) {
-	case 'l':
-		if (!strstr(instruction->disassembled, ".w")) {
-			instruction->operation = LOAD;
-		}
-
-		else {
-			instruction->operation = ATOMIC;
-		}
-		instruction->useImmediate = false;
-		instruction->useShift = false;
-		break;
-
-	case 'b':
-		instruction->operation = CMP;
-		instruction->useImmediate = false;
-		instruction->useShift = false;
-		break;
-
-	case 'j':
-	case 't':
-		if (strstr(instruction->disassembled, "jal")) {
-			instruction->operation = CALL;
-		}
-
-		else {
-			instruction->operation = JMP;
-		}
-
-		instruction->useImmediate = false;
-		instruction->useShift = false;
-		break;
-
-	case 'o':
-	case 'x':
-		instruction->operation = OR;
-		if (strstr(instruction->disassembled, "i")) {
-			instruction->useImmediate = true;
-		}
-
-		else {
-			instruction->useImmediate = false;
-		}
-		instruction->useShift = false;
-		break;
-
-	case 'e':
-		if (strstr(instruction->disassembled, "ecall")) {
-			instruction->operation = SYSCALL;
-		}
-
-		else {
-			instruction->operation = BRK;
-		}
-		instruction->useImmediate = false;
-		instruction->useShift = false;
-		break;
-
-	case 'r':
-		if (!strstr(instruction->disassembled, "remu")) {
-			instruction->operation = RET;
-		}
-
-		else {
-			instruction->operation = MUL;
-		}
-		instruction->useImmediate = false;
-		instruction->useShift = false;
-		break;
-
-	case 'n':
-		if (strstr(instruction->disassembled, "t")) {
-			instruction->operation = NOT;
-		}
-
-		else if (strstr(instruction->disassembled, "g")) {
-			instruction->operation = NEG;
-		}
-
-		else {
-			instruction->operation = NOP;
-		}
-		instruction->useImmediate = false;
-		instruction->useShift = false;
-		break;
-
-	case 'm':
-		if (!strstr(instruction->disassembled, "mul")) {
-			instruction->operation = MOV;
-		}
-
-		else {
-			instruction->operation = MUL;
-		}
-		instruction->useImmediate = false;
-		instruction->useShift = false;
-		break;
-
-	case 'a':
-		if (!strstr(instruction->disassembled, ".w")) {
-			if (strstr(instruction->disassembled, "ad") ||
-			    strstr(instruction->disassembled, "au")) {
-				instruction->operation = ADD;
-			}
-
-			else {
-				instruction->operation = AND;
-			}
-
-			if (strstr(instruction->disassembled, "i")) {
-				instruction->useImmediate = true;
-			}
-
-			else {
-				instruction->useImmediate = false;
-			}
-		}
-
-		else {
-			instruction->operation = ATOMIC;
-			instruction->useImmediate = false;
-		}
-		instruction->useShift = false;
-		break;
-
-	case 'f':
-		instruction->operation = IO;
-		instruction->useImmediate = false;
-		instruction->useShift = false;
-		break;
-
-	case 's':
-		if (!strstr(instruction->disassembled, ".w")) {
-			if (strstr(instruction->disassembled, "sub")) {
-				instruction->operation = SUB;
-				instruction->useImmediate = false;
-				instruction->useShift = false;
-			}
-
-			else if (strstr(instruction->disassembled, "se") ||
-				 strstr(instruction->disassembled, "slt") ||
-				 strstr(instruction->disassembled, "sn") ||
-				 strstr(instruction->disassembled, "sg")) {
-				instruction->operation = SET;
-				instruction->useShift = false;
-				if (strstr(instruction->disassembled, "i")) {
-					instruction->useImmediate = true;
-				}
-
-				else {
-					instruction->useImmediate = false;
-				}
-			}
-
-			else if (strstr(instruction->disassembled, "sr") ||
-				 strstr(instruction->disassembled, "sll")) {
-				instruction->operation = SHIFT;
-				instruction->useShift = true;
-				if (strstr(instruction->disassembled, "i")) {
-					instruction->useImmediate = true;
-				}
-
-				else {
-					instruction->useImmediate = false;
-				}
-			}
-
-			else {
-				instruction->operation = STORE;
-				instruction->useImmediate = false;
-				instruction->useShift = false;
-			}
-		}
-
-		else {
-			instruction->operation = ATOMIC;
-			instruction->useImmediate = false;
-			instruction->useShift = false;
-		}
-		break;
-
-	case 'd':
-		instruction->operation = DIV;
-		instruction->useImmediate = false;
-		instruction->useShift = false;
-		break;
-
-	default:
-		instruction->operation = UNSUPORTED;
-		break;
-	}
-
-	switch (detail->riscv.op_count) {
+	ins->disassembled = (const char *)calloc(
+		strlen(cs_inst->mnemonic) + strlen(cs_inst->op_str) + 2,
+		sizeof(char));
+	strncpy((char *)ins->disassembled, cs_inst->mnemonic,
+		strlen(cs_inst->mnemonic));
+	if (!strstr("ret", cs_inst->mnemonic) && RISCV_INS_ECALL != cs_inst->id)
+		// Here a space is set between the mnemonic and the op str
+		memset((void *)&ins->disassembled[strlen(cs_inst->mnemonic)],
+		       0x20, sizeof(char));
+	strncpy((char *)&ins->disassembled[strlen(cs_inst->mnemonic) + 1],
+		cs_inst->op_str, strlen(cs_inst->op_str));
+	ins->operation = cs_inst->id;
+	ins->useImmediate = false;
+	op = &(det->riscv.operands[0]);
+	switch (det->riscv.op_count) {
 	case 1:
-		op = &(detail->riscv.operands[0]);
-		if (op->type == RISCV_OP_IMM) {
-			instruction->immediate = op->imm;
+		if (RISCV_OP_IMM == op->type) {
+			ins->immediate = op->imm;
 		} else if (op->type == RISCV_OP_REG) {
-			instruction->regDest = cs_reg_name(handle, op->reg);
+			ins->regDest = cs_reg_name(handle, op->reg);
 		}
 		break;
-
 	case 2:
-		op = &(detail->riscv.operands[0]);
-		instruction->regDest = cs_reg_name(handle, op->reg);
-		op = &(detail->riscv.operands[1]);
-		if (op->type == RISCV_OP_IMM) {
-			instruction->immediate = op->imm;
+		ins->regDest = cs_reg_name(handle, op->reg);
+		op = &(det->riscv.operands[1]);
+		if (RISCV_OP_IMM == op->type) {
+			ins->immediate = op->imm;
+			ins->useImmediate = true;
 		}
 		break;
-
 	case 3:
-		op = &(detail->riscv.operands[0]);
-		instruction->regDest = cs_reg_name(handle, op->reg);
-		if (instruction->useShift) {
-			op = &(detail->riscv.operands[1]);
-			instruction->regToShift = cs_reg_name(handle, op->reg);
-		}
-		op = &(detail->riscv.operands[2]);
-		if (op->type == RISCV_OP_IMM) {
-			instruction->immediate = op->imm;
+		ins->regDest = cs_reg_name(handle, op->reg);
+		op = &(det->riscv.operands[2]);
+		if (RISCV_OP_IMM == op->type) {
+			ins->immediate = op->imm;
+			ins->useImmediate = true;
 		}
 		break;
 	}
-	return pushToPGL(instruction);
+	return pushToPGL(ins);
 }
 
-static inline bool getBits(Elf32_Ehdr *header)
+static inline bool getBits(Elf32_Ehdr *hdr)
 {
 	// If value equals to 2, the binary is from a 64 bits arch
-	return 2 == header->e_ident[EI_CLASS];
+	return 2 == hdr->e_ident[EI_CLASS];
 }
 
 static void getOpcode(int opcode, unsigned char *opcode_ptr)
@@ -503,29 +279,29 @@ static uint8_t initializeCapstone(uint8_t usesCIns)
 	} else if (!usesCIns) {
 		res = cs_open(CS_ARCH_RISCV, CS_MODE_RISCV64, &handle);
 	}
-
 	if (!(BIT64 == bitness) && usesCIns) {
 		res = cs_open(CS_ARCH_RISCV, CS_MODE_RISCV32 + CS_MODE_RISCVC,
 			      &handle);
 	} else if (!usesCIns) {
 		res = cs_open(CS_ARCH_RISCV, CS_MODE_RISCV32, &handle);
 	}
-
-	if (0 != res) {
+	if (0 != res)
 		fprintf(stderr, "[-] Error starting capstone engine!\n");
-	}
-
 	return res;
 }
 
-static struct mappedBin *mapFile(FILE *file)
+static inline bool isValidJump(enum riscv_insn *op)
+{
+	return (RISCV_INS_C_JALR == *op) || (RISCV_INS_JALR == *op);
+}
+
+static struct mappedFile *mapFile(FILE *f)
 {
 	uint8_t fd;
 	struct stat statbuf;
-	struct mappedBin *res =
-		(struct mappedBin *)malloc(sizeof(struct mappedBin));
-
-	fd = fileno(file);
+	struct mappedFile *res =
+		(struct mappedFile *)malloc(sizeof(struct mappedFile));
+	fd = fileno(f);
 	if (fstat(fd, &statbuf)) {
 		fprintf(stderr, "[-] Error while stating the file!\n");
 		goto error;
@@ -537,7 +313,6 @@ static struct mappedBin *mapFile(FILE *file)
 		fprintf(stderr, "[-] Error mapping the file!\n");
 		goto error;
 	}
-
 	return res;
 error:
 	free(res);
@@ -545,10 +320,15 @@ error:
 	return NULL;
 }
 
-static uint8_t pushToPGL(struct instruction *instruction)
+static uint8_t pushToPGL(struct instruction *ins)
 {
 	// Inserts new record in the list and return it's index
 	static uint8_t pos = 0;
-	preliminary_gadget_list[pos % 100] = instruction;
+	preliminary_gadget_list[pos % 100] = ins;
 	return pos++ % 100;
+}
+
+static inline void unmapFile(struct mappedFile *mf)
+{
+	munmap(mf->address, mf->size);
 }

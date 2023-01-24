@@ -21,17 +21,14 @@
 
 struct gadget_t *del(struct node_t *list, const char *key)
 {
-	if (NULL == list) {
+	if (NULL == list)
 		return NULL;
-	}
-
 	struct gadget_t *res;
 	struct node_t *head = list, *last = NULL;
 	while ((NULL != head->data) && (0 != strcmp(head->key, key))) {
 		last = head;
 		head = head->next;
 	}
-
 	if (NULL == last) {
 		res = head->data;
 		list = list->next;
@@ -39,7 +36,6 @@ struct gadget_t *del(struct node_t *list, const char *key)
 		head = NULL;
 		return res;
 	}
-
 	if ((NULL == head->data) && (0 == strcmp(last->key, key))) {
 		free(head);
 		head = NULL;
@@ -47,7 +43,6 @@ struct gadget_t *del(struct node_t *list, const char *key)
 	} else if (NULL == head->data) {
 		return NULL;
 	}
-
 	res = head->data;
 	last->next = head->next;
 	free(head);
@@ -57,15 +52,12 @@ struct gadget_t *del(struct node_t *list, const char *key)
 
 struct node_t *find(struct node_t *list, const char *key)
 {
-	if (NULL == list) {
+	if (NULL == list)
 		return NULL;
-	}
-
 	struct node_t *head = list;
 	while (NULL != head->data) {
-		if (0 == strcmp(head->key, key)) {
+		if (0 == strcmp(head->key, key))
 			return head;
-		}
 		head = head->next;
 	}
 	return NULL;
@@ -82,9 +74,8 @@ struct node_t *insert(struct node_t *list, struct gadget_t *data,
 
 void printContent(struct node_t *list)
 {
-	if (NULL == list) {
+	if (NULL == list)
 		return;
-	}
 	struct node_t *head = list;
 	while (NULL != head->data) {
 		printGadget(head->data);

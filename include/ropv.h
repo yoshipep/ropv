@@ -21,18 +21,18 @@
 
 #include <stdint.h>
 
-typedef enum
+enum program_mode_t
 {
 	GENERIC_MODE,
 	JOP_MODE,
 	RET_MODE,
 	SYSCALL_MODE
-} program_mode_t;
+};
 
 struct arguments
 {
 	char *file;
-	program_mode_t mode;
+	enum program_mode_t mode;
 	uint8_t arg_num;
 	uint8_t options;
 };

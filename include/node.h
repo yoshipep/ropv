@@ -24,12 +24,12 @@
 #include <stdlib.h>
 #include <string.h>
 
-typedef struct node_t
+struct node_t
 {
 	const char *key;
 	struct gadget_t *data;
 	struct node_t *next;
-} node_t;
+};
 
 extern struct instruction *preliminary_gadget_list[100];
 
@@ -39,8 +39,7 @@ extern struct node_t *spDuplicated;
 
 inline struct node_t *create()
 {
-	struct node_t *list = (struct node_t *)calloc(1, sizeof(struct node_t));
-	return list;
+	return (struct node_t *)calloc(1, sizeof(struct node_t));
 }
 
 struct gadget_t *del(struct node_t *list, const char *key);

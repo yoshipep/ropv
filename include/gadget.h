@@ -34,8 +34,8 @@ typedef struct gadget_t
 
 extern struct arguments args;
 
-void printGadget(struct gadget_t *gadget);
+void printGadget(struct gadget_t *g);
 
-void processGadgets(uint8_t lastElement, op_t lastOperation);
+void processGadgets(uint8_t lastElement, enum riscv_insn lastOp);
 
 #endif
