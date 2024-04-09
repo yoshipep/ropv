@@ -1,6 +1,6 @@
 # NOTICE
 
-This program was a Bachelor's Degree Final Project that I finished last year. I no longer mantain it so it may contain bugs and has limited functionality as I didn't implement all the features I wanted to. The last working branch is _capstone_. In addition, the paper is available [here](https://riunet.upv.es/handle/10251/187258)
+This program was a Bachelor's Degree Final Project that I finished last year. I no longer mantain it so it may contain bugs and has limited functionality as I didn't implement all the features I wanted to. The last working branch is _capstone_. In addition, the paper is available [here](https://jcomes.org/ropv)
 
 ## Synopsis
 
